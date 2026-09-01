@@ -1,0 +1,16 @@
+{
+  "servers": {
+    "universal-agent-control-plane": {
+      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+      "args": [
+        "-m",
+        "universal_agent_control_plane.server"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}\\src",
+        "UACP_REGISTRY_ROOT": "${workspaceFolder}\\registry",
+        "UACP_DATA_DIR": "${workspaceFolder}\\.data"
+      }
+    }
+  }
+}

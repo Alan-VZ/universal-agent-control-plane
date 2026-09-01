@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Universal Agent Control Plane</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --paper: #f5f5f5;
+      --paper-2: #ececec;
+      --ink: #2d3142;
+      --muted: #4f5d75;
+      --soft: #7a8399;
+      --accent: #eb6c36;
+      --link: #2e5aa8;
+      --sans: 'Geist', system-ui, sans-serif;
+      --serif: 'Instrument Serif', serif;
+      --mono: 'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      min-height: 100vh;
+      padding: 48px 32px;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+
+    main {
+      width: min(100%, 1280px);
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      margin-bottom: 8px;
+      color: var(--muted);
+      font: 500 12px/1.4 var(--mono);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+      font: 400 32px/1.12 var(--serif);
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      max-width: 800px;
+      margin-bottom: 24px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      min-width: 960px;
+    }
+
+    footer {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(45, 49, 66, 0.12);
+      color: var(--soft);
+      font: 400 12px/1.5 var(--mono);
+    }
+
+    @media (max-width: 1040px) {
+      body { overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">Architecture · Runtime + global distribution</p>
+    <h1>Universal Agent Control Plane</h1>
+    <p class="subtitle">One canonical registry powers native MCP and a safe global installer that projects instructions, live skill links, and merged user-level MCP configuration to every project.</p>
+
+    <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="universal-agent-control-plane-title universal-agent-control-plane-desc">
+      <title id="universal-agent-control-plane-title">Universal Agent Control Plane</title>
+      <desc id="universal-agent-control-plane-desc">Implemented architecture showing one canonical registry feeding MCP runtime services and an idempotent global installer that connects user-level agent scopes while preserving project overrides.</desc>
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
+        </marker>
+        <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#eb6c36"/>
+        </marker>
+        <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/>
+        </marker>
+      </defs>
+
+      <rect width="1280" height="720" fill="#f5f5f5"/>
+
+      <!-- Trust and responsibility zones -->
+      <rect x="40" y="80" width="240" height="500" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+      <rect x="56" y="84" width="112" height="16" rx="2" fill="#f5f5f5"/>
+      <text x="112" y="96" fill="rgba(45,49,66,0.52)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">SOURCE OF TRUTH</text>
+
+      <rect x="320" y="80" width="560" height="500" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+      <rect x="336" y="84" width="112" height="16" rx="2" fill="#f5f5f5"/>
+      <text x="392" y="96" fill="rgba(45,49,66,0.52)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">CONTROL PLANE</text>
+
+      <rect x="920" y="80" width="320" height="500" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+      <rect x="936" y="84" width="96" height="16" rx="2" fill="#f5f5f5"/>
+      <text x="984" y="96" fill="rgba(45,49,66,0.52)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">AGENT HOSTS</text>
+
+      <!-- Connectors are drawn before nodes -->
+      <path d="M 248,284 H 296 Q 304,284 304,276 V 188 Q 304,180 312,180 H 352"
+            fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="256" y="264" width="40" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="276" y="272" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">INDEX</text>
+
+      <line x1="248" y1="328" x2="352" y2="328" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="276" y="308" width="48" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="300" y="316" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">ALLOW</text>
+
+      <path d="M 544,180 H 576 Q 584,180 584,172 H 608"
+            fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <path d="M 656,212 V 236 Q 656,244 648,244 H 568 Q 560,244 560,252 V 320 Q 560,328 552,328 H 544"
+            fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <line x1="608" y1="308" x2="544" y2="308" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <line x1="704" y1="252" x2="704" y2="212" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+      <rect x="716" y="224" width="40" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="736" y="232" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">MOUNT</text>
+
+      <path d="M 544,196 H 568 Q 576,196 576,204 V 300 a 8,8 0 0,0 0,16 V 400 Q 576,408 584,408 H 608"
+            fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="588" y="244" width="48" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="612" y="252" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">RESOLVE</text>
+
+      <line x1="416" y1="372" x2="416" y2="464" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+      <path d="M 800,396 H 872 Q 880,396 880,388 V 356 Q 880,348 888,348 H 960"
+            fill="none" stroke="#eb6c36" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow-accent)"/>
+      <rect x="804" y="376" width="64" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="836" y="384" fill="#b64d24" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">USER SCOPE</text>
+
+      <path d="M 800,172 H 872 Q 880,172 880,180 V 232 Q 880,240 888,240 H 960"
+            fill="none" stroke="#2e5aa8" stroke-width="1.6" marker-end="url(#arrow-link)"/>
+      <rect x="816" y="152" width="48" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="840" y="160" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">MCP</text>
+
+      <line x1="800" y1="292" x2="960" y2="292" stroke="#2e5aa8" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow-link)"/>
+      <rect x="844" y="272" width="72" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="880" y="280" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">REST COMPAT</text>
+
+      <!-- Nodes -->
+      <rect x="72" y="260" width="176" height="96" rx="6" fill="#f5f5f5"/>
+      <rect x="72" y="260" width="176" height="96" rx="6" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1.2"/>
+      <rect x="84" y="268" width="48" height="16" rx="2" fill="transparent" stroke="rgba(235,108,54,0.52)" stroke-width="0.8"/>
+      <text x="108" y="280" fill="#b64d24" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">GIT</text>
+      <text x="160" y="308" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Canonical Registry</text>
+      <text x="160" y="328" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">manifest · skills · prompts</text>
+      <text x="160" y="344" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">instructions · runners</text>
+
+      <rect x="352" y="144" width="192" height="72" rx="6" fill="#f5f5f5"/>
+      <rect x="352" y="144" width="192" height="72" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <rect x="364" y="152" width="56" height="16" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+      <text x="392" y="164" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CORE</text>
+      <text x="448" y="184" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Registry Resolver</text>
+      <text x="448" y="204" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">validate · resolve · search</text>
+
+      <rect x="352" y="284" width="192" height="88" rx="6" fill="#f5f5f5"/>
+      <rect x="352" y="284" width="192" height="88" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <rect x="364" y="292" width="64" height="16" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+      <text x="396" y="304" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">RUNNER</text>
+      <text x="448" y="328" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Skill Executor</text>
+      <text x="448" y="348" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">allow-list · mtime · reload</text>
+
+      <rect x="608" y="132" width="192" height="80" rx="6" fill="#f5f5f5"/>
+      <rect x="608" y="132" width="192" height="80" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <rect x="620" y="140" width="48" height="16" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+      <text x="644" y="152" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">MCP</text>
+      <text x="704" y="176" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Native MCP Server</text>
+      <text x="704" y="196" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">stdio · HTTP · 7 tools</text>
+
+      <rect x="608" y="252" width="192" height="80" rx="6" fill="#f5f5f5"/>
+      <rect x="608" y="252" width="192" height="80" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <rect x="620" y="260" width="48" height="16" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+      <text x="644" y="272" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">HTTP</text>
+      <text x="704" y="296" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">FastAPI Gateway</text>
+      <text x="704" y="316" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">REST · OpenAPI · /mcp</text>
+
+      <rect x="608" y="372" width="192" height="72" rx="6" fill="#f5f5f5"/>
+      <rect x="608" y="372" width="192" height="72" rx="6" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1.2"/>
+      <rect x="620" y="380" width="64" height="16" rx="2" fill="transparent" stroke="rgba(235,108,54,0.52)" stroke-width="0.8"/>
+      <text x="652" y="392" fill="#b64d24" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">INSTALL</text>
+      <text x="704" y="412" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Global Installer</text>
+      <text x="704" y="432" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">merge · link · doctor · uninstall</text>
+
+      <rect x="352" y="464" width="448" height="72" rx="6" fill="#f5f5f5"/>
+      <rect x="352" y="464" width="448" height="72" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+      <rect x="364" y="472" width="56" height="16" rx="2" fill="transparent" stroke="rgba(79,93,117,0.40)" stroke-width="0.8"/>
+      <text x="392" y="484" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">STATE</text>
+      <text x="576" y="504" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">SQLite State + Structured Audit Logging</text>
+      <text x="576" y="524" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">namespaces · WAL · JSON stderr · rotating file</text>
+
+      <rect x="960" y="176" width="240" height="288" rx="6" fill="#f5f5f5"/>
+      <rect x="960" y="176" width="240" height="288" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <rect x="972" y="184" width="48" height="16" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+      <text x="996" y="196" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">HOSTS</text>
+      <text x="1080" y="240" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">VS Code + Copilot</text>
+      <text x="1080" y="260" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">user mcp.json · native MCP</text>
+      <line x1="984" y1="288" x2="1176" y2="288" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+      <text x="1080" y="328" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Claude + Agent Skills</text>
+      <text x="1080" y="348" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">~/.claude · ~/.copilot · ~/.agents</text>
+      <line x1="984" y1="376" x2="1176" y2="376" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+      <text x="1080" y="416" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Project Overrides</text>
+      <text x="1080" y="436" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">.github · AGENTS.md · .claude</text>
+
+      <!-- Legend -->
+      <line x1="40" y1="620" x2="1240" y2="620" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+      <text x="40" y="648" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
+      <line x1="136" y1="644" x2="176" y2="644" stroke="#2e5aa8" stroke-width="1.6" marker-end="url(#arrow-link)"/>
+      <text x="192" y="648" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">STANDARD MCP</text>
+      <line x1="344" y1="644" x2="384" y2="644" stroke="#4f5d75" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+      <text x="400" y="648" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">COMPATIBILITY / PERSISTENCE</text>
+      <rect x="608" y="632" width="24" height="24" rx="4" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1"/>
+      <text x="648" y="648" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">FOCAL CONTROL POINT</text>
+      <rect x="832" y="632" width="24" height="24" rx="4" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+      <text x="872" y="648" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">GOVERNED STATE</text>
+    </svg>
+
+    <footer>Architecture map · runtime + global distribution · doc-wide · mixed audience · static HTML · updated 2026-08-30</footer>
+  </main>
+</body>
+</html>

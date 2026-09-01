@@ -1,0 +1,29 @@
+schemaVersion: 1
+
+profiles:
+  default:
+    instructions:
+      - instructions/global.md
+    skills:
+      - example-skill
+    prompts:
+      - code-review
+
+runners:
+  example-skill: universal_agent_control_plane.runners.greeting:run
+
+targets:
+  vscode:
+    instructions: true
+    agentSkills: true
+    mcp:
+      tools: true
+      prompts: true
+      resources: true
+  claude-code:
+    instructions: true
+    agentSkills: true
+    mcp:
+      tools: true
+      prompts: true
+      resources: true

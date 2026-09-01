@@ -1,0 +1,29 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Runtime state and logs
+.data/
+*.log
+
+# Builds and packages
+dist/
+build/
+*.egg-info/
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+*.code-workspace
