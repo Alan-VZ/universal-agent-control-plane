@@ -12,6 +12,11 @@ this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Public repository community health files and GitHub templates.
 - GitHub Actions test matrix and Dependabot configuration.
 
+### Fixed
+
+- Restored Python 3.10 compatibility for structured log timestamps.
+- Made global installer tests use the active interpreter on clean CI runners.
+
 ## [0.1.0] - 2026-09-01
 
 ### Added

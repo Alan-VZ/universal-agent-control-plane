@@ -1,4 +1,5 @@
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,7 @@ from universal_agent_control_plane.global_install import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-PYTHON = PROJECT_ROOT / ".venv" / "Scripts" / "python.exe"
+PYTHON = Path(sys.executable)
 
 
 def make_installer(tmp_path: Path) -> GlobalInstaller:
