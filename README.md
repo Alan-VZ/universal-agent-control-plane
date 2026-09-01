@@ -18,7 +18,11 @@ host's supported mechanism without pretending every host has identical semantics
 
 ## Architecture map
 
-Open the self-contained [Universal Agent Control Plane architecture map](docs/universal-agent-control-plane.html) in a browser.
+[![Universal Agent Control Plane architecture](docs/universal-agent-control-plane.svg)](docs/universal-agent-control-plane.html)
+
+The diagram is embedded as SVG so GitHub can display it directly. Open the
+[self-contained interactive architecture map](docs/universal-agent-control-plane.html)
+for the full browser view.
 
 The design uses two complementary delivery paths:
 
@@ -61,7 +65,8 @@ universal-agent-control-plane/
 │   ├── dependabot.yml
 │   └── pull_request_template.md
 ├── docs/
-│   └── universal-agent-control-plane.html
+│   ├── universal-agent-control-plane.html
+│   └── universal-agent-control-plane.svg
 ├── registry/
 │   ├── manifest.yaml
 │   ├── instructions/

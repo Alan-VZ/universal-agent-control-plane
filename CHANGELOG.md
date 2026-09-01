@@ -11,6 +11,7 @@ this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Public repository community health files and GitHub templates.
 - GitHub Actions test matrix and Dependabot configuration.
+- GitHub-renderable architecture diagram embedded in the README.
 
 ### Fixed
 
