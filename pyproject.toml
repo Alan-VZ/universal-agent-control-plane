@@ -47,7 +47,7 @@ Source = "https://github.com/Alan-VZ/universal-agent-control-plane"
 [project.optional-dependencies]
 dev = [
   "httpx>=0.28,<1",
-  "pytest>=8.3,<9",
+  "pytest>=8.3,<10",
 ]
 
 [project.scripts]
