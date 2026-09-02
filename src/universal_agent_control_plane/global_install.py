@@ -62,6 +62,7 @@ class GlobalInstaller:
         links = self._install_registry_and_skills()
         instruction_files = self._install_instructions()
         mcp_files = self._install_mcp_configs()
+        hook_files = self._install_hooks()
         claude_mcp = self._configure_claude_mcp() if configure_claude_mcp else {
             "configured": False,
             "reason": "skipped",
@@ -72,6 +73,7 @@ class GlobalInstaller:
             "instructions": instruction_files,
             "skillLinks": links,
             "mcpConfigs": mcp_files,
+            "hooks": hook_files,
             "claudeMcp": claude_mcp,
         }
 
@@ -109,6 +111,13 @@ class GlobalInstaller:
                 ),
                 "claudeCliAvailable": shutil.which("claude") is not None,
             },
+            "hooks": {
+                "events": self._hook_events(),
+                "copilot": (
+                    self.paths.home / ".copilot" / "hooks" / f"{SERVER_NAME}.json"
+                ).is_file(),
+                "claude": self._claude_hooks_installed(),
+            },
         }
 
     def plan(self) -> dict[str, Any]:
@@ -140,6 +149,11 @@ class GlobalInstaller:
                 str(self.paths.vscode_user / "mcp.json"),
                 str(self.paths.home / ".copilot" / "mcp-config.json"),
             ],
+            "hooks": [
+                str(self.paths.home / ".copilot" / "hooks" / f"{SERVER_NAME}.json"),
+                str(self.paths.home / ".claude" / "settings.json"),
+            ],
+            "hookEvents": self._hook_events(),
             "conflicts": conflicts,
         }
 
@@ -178,6 +192,14 @@ class GlobalInstaller:
         ):
             if self._remove_json_server(path):
                 removed.append(f"{path} ({SERVER_NAME})")
+
+        copilot_hooks = self.paths.home / ".copilot" / "hooks" / f"{SERVER_NAME}.json"
+        if copilot_hooks.is_file():
+            copilot_hooks.unlink()
+            removed.append(str(copilot_hooks))
+
+        if self._remove_claude_hooks():
+            removed.append(f"{self.paths.home / '.claude' / 'settings.json'} (hooks)")
         return {
             "uninstalled": True,
             "removed": removed,
@@ -189,6 +211,38 @@ class GlobalInstaller:
                 ),
             },
         }
+
+    def _remove_claude_hooks(self) -> bool:
+        """Remove only the hook groups this installer created."""
+        path = self.paths.home / ".claude" / "settings.json"
+        if not path.is_file():
+            return False
+        document = self._read_json(path, {})
+        hooks = document.get("hooks")
+        if not isinstance(hooks, dict):
+            return False
+        changed = False
+        for event in list(hooks):
+            groups = hooks[event]
+            if not isinstance(groups, list):
+                continue
+            remaining = [
+                group for group in groups if not self._is_managed_group(group)
+            ]
+            if len(remaining) != len(groups):
+                changed = True
+                if remaining:
+                    hooks[event] = remaining
+                else:
+                    del hooks[event]
+        if not changed:
+            return False
+        if hooks:
+            document["hooks"] = hooks
+        else:
+            document.pop("hooks", None)
+        self._write_json(path, document)
+        return True
 
     def _install_registry_and_skills(self) -> list[str]:
         registry_link = self.paths.home / ".claude" / "uacp-registry"
@@ -247,6 +301,145 @@ Project-level instructions remain additive and may specialize these global defau
             servers[SERVER_NAME] = server
             self._write_json(path, document)
         return [str(path) for path in files]
+
+    def _claude_hooks_installed(self) -> bool:
+        path = self.paths.home / ".claude" / "settings.json"
+        try:
+            document = self._read_json(path, {})
+        except InstallError:
+            return False
+        hooks = document.get("hooks")
+        if not isinstance(hooks, dict):
+            return False
+        return any(
+            isinstance(groups, list)
+            and any(self._is_managed_group(group) for group in groups)
+            for groups in hooks.values()
+        )
+
+    def _install_hooks(self) -> list[str]:
+        """Write managed hook configuration for both hosts.
+
+        Copilot loads its own hook file, and Claude Code reads hooks from
+        its user settings. Both are pointed at the same CLI entry point, so
+        one registry drives identical behavior on either host.
+        """
+        written: list[str] = []
+
+        copilot_path = self.paths.home / ".copilot" / "hooks" / f"{SERVER_NAME}.json"
+        self._write_json(copilot_path, self._copilot_hooks())
+        written.append(str(copilot_path))
+
+        claude_settings = self.paths.home / ".claude" / "settings.json"
+        document = self._read_json(claude_settings, {})
+        existing = document.get("hooks")
+        if existing is not None and not isinstance(existing, dict):
+            raise InstallError(f"'hooks' must be an object: {claude_settings}")
+        merged = dict(existing or {})
+        for event, entries in self._claude_hooks().items():
+            unmanaged = [
+                group
+                for group in merged.get(event, [])
+                if not self._is_managed_group(group)
+            ]
+            merged[event] = unmanaged + entries
+        document["hooks"] = merged
+        self._write_json(claude_settings, document)
+        written.append(str(claude_settings))
+        return written
+
+    def _hook_events(self) -> list[str]:
+        return sorted(self.registry.hooks())
+
+    def _hook_command(self, event: str) -> list[str]:
+        return [
+            str(self.python_executable),
+            "-m",
+            "universal_agent_control_plane.cli",
+            "hook",
+            event,
+        ]
+
+    def _hook_env(self) -> dict[str, str]:
+        return {
+            "PYTHONPATH": str(self.project_root / "src"),
+            "UACP_REGISTRY_ROOT": str(self.registry_root),
+            "UACP_DATA_DIR": str(self.project_root / ".data"),
+        }
+
+    def _copilot_hooks(self) -> dict[str, Any]:
+        # Copilot maps camelCase event names to camelCase payload fields.
+        names = {
+            "session_start": "sessionStart",
+            "session_end": "sessionEnd",
+            "user_prompt": "userPromptSubmitted",
+            "pre_tool_use": "preToolUse",
+            "post_tool_use": "postToolUse",
+            "subagent_start": "subagentStart",
+            "subagent_stop": "subagentStop",
+        }
+        hooks: dict[str, Any] = {}
+        for event in self._hook_events():
+            host_event = names.get(event)
+            if host_event is None:
+                continue
+            command = self._hook_command(event)
+            hooks[host_event] = [
+                {
+                    # `exec` runs the interpreter directly with no shell, which
+                    # keeps Windows paths containing spaces intact.
+                    "type": "command",
+                    "exec": command[0],
+                    "args": command[1:],
+                    "env": self._hook_env(),
+                    "timeoutSec": 10,
+                }
+            ]
+        return {"version": 1, "hooks": hooks}
+
+    def _claude_hooks(self) -> dict[str, list[dict[str, Any]]]:
+        # Claude Code uses PascalCase event names and matcher groups.
+        names = {
+            "session_start": "SessionStart",
+            "session_end": "SessionEnd",
+            "user_prompt": "UserPromptSubmit",
+            "pre_tool_use": "PreToolUse",
+            "post_tool_use": "PostToolUse",
+            "subagent_start": "SubagentStart",
+            "subagent_stop": "SubagentStop",
+        }
+        hooks: dict[str, list[dict[str, Any]]] = {}
+        for event in self._hook_events():
+            host_event = names.get(event)
+            if host_event is None:
+                continue
+            command = self._hook_command(event)
+            handler: dict[str, Any] = {
+                "type": "command",
+                "command": command[0],
+                "args": command[1:],
+                "statusMessage": f"UACP {event}",
+            }
+            if host_event == "SessionEnd":
+                # SessionEnd handlers share a 1.5 second budget by default.
+                # Running in the background keeps session shutdown responsive.
+                handler["async"] = True
+            hooks[host_event] = [{"hooks": [handler]}]
+        return hooks
+
+    @staticmethod
+    def _is_managed_group(group: Any) -> bool:
+        if not isinstance(group, dict):
+            return False
+        handlers = group.get("hooks")
+        if not isinstance(handlers, list):
+            return False
+        return any(
+            isinstance(handler, dict)
+            and isinstance(handler.get("args"), list)
+            and "universal_agent_control_plane.cli" in handler["args"]
+            for handler in handlers
+        )
 
     def _configure_claude_mcp(self) -> dict[str, Any]:
         claude = shutil.which("claude")

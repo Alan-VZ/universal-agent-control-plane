@@ -12,6 +12,18 @@ profiles:
 runners:
   example-skill: universal_agent_control_plane.runners.greeting:run
 
+hooks:
+  # Session-level events ignore sub-agents so a summarized session can never
+  # trigger agents that summarize themselves.
+  rootSessionsOnly:
+    - session_start
+    - session_end
+  handlers:
+    session_start:
+      - universal_agent_control_plane.runners.session_journal:load_context
+    session_end:
+      - universal_agent_control_plane.runners.session_journal:record_session
+
 targets:
   vscode:
     instructions: true

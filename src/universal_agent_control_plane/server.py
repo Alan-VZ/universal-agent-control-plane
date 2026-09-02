@@ -8,6 +8,7 @@ from typing import Any
 from mcp.server import MCPServer
 
 from .execution import SkillExecutor
+from .hooks import HookDispatcher
 from .logging_config import configure_logging
 from .orchestration import AgentTarget, Orchestrator
 from .registry import Registry, RegistryError
@@ -21,6 +22,7 @@ registry = Registry(REGISTRY_ROOT)
 state = StateStore(DATA_DIR)
 executor = SkillExecutor(registry)
 orchestrator = Orchestrator(executor)
+hooks = HookDispatcher(registry, executor, state)
 mcp = MCPServer("Universal Agent Control Plane")
 logger = logging.getLogger(__name__)
 
@@ -106,6 +108,24 @@ def orchestrate(
 ) -> dict[str, Any]:
     """Route one skill result to an agent target or a broadcast result envelope."""
     return orchestrator.route(target, skill_name, payload)
+
+
+@mcp.tool()
+def hook_list() -> dict[str, Any]:
+    """List canonical lifecycle events and their configured handlers."""
+    return hooks.events()
+
+
+@mcp.tool()
+def hook_emit(event: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Dispatch a lifecycle event from any host that cannot call hooks directly."""
+    return hooks.dispatch(event, payload)
+
+
+@mcp.tool()
+def journal_recent(limit: int = 5) -> list[dict[str, Any]]:
+    """Return recent session summaries recorded by session-end hooks."""
+    return state.recent_journal(limit)
 
 
 @mcp.tool()

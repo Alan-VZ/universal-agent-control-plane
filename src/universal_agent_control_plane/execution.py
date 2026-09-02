@@ -34,6 +34,21 @@ class SkillExecutor:
         result = runner(payload)
         return {"skill": skill_name, **result}
 
+    def run_reference(self, reference: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """Run an allow-listed runner reference directly.
+
+        Hook handlers are declared as runner references rather than skill
+        names, so they are validated by the same allow list without needing
+        a SKILL.md document.
+        """
+        if not isinstance(payload, dict):
+            raise ValueError("payload must be an object")
+        if reference not in self.registry.hook_handler_references():
+            raise RegistryError(f"Handler is not allow-listed: {reference}")
+        runner = self._load_runner(reference)
+        logger.info("Running hook handler", extra={"fields": {"handler": reference}})
+        return runner(payload)
+
     def _load_runner(self, reference: str) -> Runner:
         module_name, separator, function_name = reference.partition(":")
         if (

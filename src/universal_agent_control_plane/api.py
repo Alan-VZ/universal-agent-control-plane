@@ -10,10 +10,11 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from .hooks import HookError
 from .logging_config import configure_logging
 from .orchestration import AgentTarget
 from .registry import RegistryError
-from .server import DATA_DIR, executor, mcp, orchestrator, registry, state
+from .server import DATA_DIR, executor, hooks, mcp, orchestrator, registry, state
 
 logger = logging.getLogger(__name__)
 mcp_app = mcp.streamable_http_app(
@@ -118,6 +119,24 @@ def route(request: OrchestrationRequest) -> dict[str, Any]:
     try:
         return orchestrator.route(request.target, request.skill, request.payload)
     except (RegistryError, ValueError) as exc:
+        raise _bad_request(exc) from exc
+
+
+@app.get("/hooks")
+def hook_events() -> dict[str, Any]:
+    return hooks.events()
+
+
+@app.post("/hooks/{event}")
+def hook_event(event: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Receive a native HTTP hook from any agent host.
+
+    Copilot and Claude Code both POST their hook payload as the request
+    body, so this single route serves both without host-specific handling.
+    """
+    try:
+        return hooks.dispatch(event, payload)
+    except (HookError, RegistryError, ValueError) as exc:
         raise _bad_request(exc) from exc
 
 

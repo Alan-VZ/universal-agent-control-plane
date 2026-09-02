@@ -102,6 +102,49 @@ class Registry:
             raise RegistryError(f"Skill has no allow-listed runner: {skill_name}")
         return runner
 
+    def hooks(self) -> dict[str, list[str]]:
+        from .hooks import canonical_event
+
+        configured = self.manifest().get("hooks", {})
+        if not isinstance(configured, dict):
+            raise RegistryError("Manifest hooks must be a mapping")
+        handlers = configured.get("handlers", {})
+        if not isinstance(handlers, dict):
+            raise RegistryError("Manifest hook handlers must be a mapping")
+        resolved: dict[str, list[str]] = {}
+        for event_name, references in handlers.items():
+            event = canonical_event(str(event_name))
+            if not isinstance(references, list) or not all(
+                isinstance(item, str) for item in references
+            ):
+                raise RegistryError(f"Hook handlers must be a list: {event_name}")
+            if event in resolved:
+                raise RegistryError(f"Duplicate hook event configuration: {event}")
+            resolved[event] = references
+        return resolved
+
+    def hook_root_only_events(self) -> set[str]:
+        """Events that must ignore sub-agent sessions to prevent recursion."""
+        from .hooks import canonical_event
+
+        configured = self.manifest().get("hooks", {})
+        if not isinstance(configured, dict):
+            raise RegistryError("Manifest hooks must be a mapping")
+        events = configured.get("rootSessionsOnly", ["session_start", "session_end"])
+        if not isinstance(events, list) or not all(
+            isinstance(item, str) for item in events
+        ):
+            raise RegistryError("Manifest rootSessionsOnly must be a list of events")
+        return {canonical_event(item) for item in events}
+
+    def hook_handler_references(self) -> set[str]:
+        """Every runner reference any hook event is allowed to invoke."""
+        return {
+            reference
+            for references in self.hooks().values()
+            for reference in references
+        }
+
     def search(self, query: str) -> list[dict[str, str]]:
         normalized = query.strip().casefold()
         if not normalized:
@@ -140,6 +183,8 @@ class Registry:
                 missing = sorted(set(runners) - skill_names)
                 if missing:
                     errors.append(f"Runners reference unknown skills: {', '.join(missing)}")
+            self.hooks()
+            self.hook_root_only_events()
         except (RegistryError, OSError, yaml.YAMLError) as exc:
             errors.append(str(exc))
         return {"valid": not errors, "errors": errors}

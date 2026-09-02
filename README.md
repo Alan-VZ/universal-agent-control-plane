@@ -39,6 +39,7 @@ The original concept is valid, but several assumptions have changed:
 - VS Code supports portable Agent Skills stored in `.github/skills/`, `.claude/skills/`, or `.agents/skills/`, as well as user-level equivalents.
 - VS Code recognizes multiple instruction formats, including `.github/copilot-instructions.md`, `AGENTS.md`, `CLAUDE.md`, `.github/instructions/*.instructions.md`, and `.claude/rules/`.
 - Claude Code supports MCP, `CLAUDE.md`, `.claude/rules/`, and filesystem-based Agent Skills.
+- **Both GitHub Copilot and Claude Code now ship native lifecycle hooks.** Copilot reads hook files from `.github/hooks/`, `~/.copilot/hooks/`, and its settings; Claude Code reads them from `~/.claude/settings.json` and `.claude/settings.json`. Hooks therefore do not need to be simulated — this server acts as the shared hook backend both hosts call.
 - Skills and instructions are portable only where their host semantics overlap. A resolver and adapter layer is still useful for validation, precedence, compatibility checks, and installation.
 
 This repository therefore aims for **shared source, explicit adapters, and honest capability negotiation** rather than claiming that all agents behave identically.
@@ -82,17 +83,21 @@ universal-agent-control-plane/
 │       ├── cli.py
 │       ├── execution.py
 │       ├── global_install.py
+│       ├── hooks.py
 │       ├── logging_config.py
 │       ├── orchestration.py
 │       ├── server.py
 │       ├── registry.py
 │       ├── storage.py
 │       └── runners/
-│           └── greeting.py
+│           ├── greeting.py
+│           └── session_journal.py
 └── tests/
     ├── test_api.py
     ├── test_execution.py
     ├── test_global_install.py
+    ├── test_hook_install.py
+    ├── test_hooks.py
     ├── test_orchestration.py
     ├── test_registry.py
     └── test_storage.py
@@ -108,7 +113,8 @@ skill and prompt, SQLite-backed shared state, VS Code configuration, and focused
 | Canonical registry | Versioned source for instructions, skills, prompt templates, manifests, and compatibility metadata |
 | Registry resolver | Validates schemas, resolves scope and precedence, and produces a deterministic effective configuration |
 | MCP gateway | Exposes standard MCP tools, prompts, and resources over `stdio` and Streamable HTTP |
-| Global installer | Merges user MCP configuration, adds managed instruction projections, and creates live links to canonical skills |
+| Global installer | Merges user MCP configuration, adds managed instruction projections, writes managed hook configuration, and creates live links to canonical skills |
+| Hook dispatcher | Normalizes host lifecycle events onto canonical names, enforces anti-recursion and anti-bloat rules, and journals session history |
 | Policy and state | Applies authorization and capability rules; stores optional namespaced state and append-only audit events |
 | Agent hosts | Consume MCP capabilities and/or native files according to host behavior and user approval |
 
@@ -146,6 +152,9 @@ skill_run
 orchestrate
 state_get
 state_put
+hook_list
+hook_emit
+journal_recent
 ```
 
 Tool schemas must be explicit and validated. `skill.run` should dispatch only to allow-listed implementations declared in the registry; it must never import an arbitrary module name supplied by a client.
@@ -337,6 +346,8 @@ REST compatibility routes are:
 - `GET /memory?namespace=...&key=...`
 - `POST /memory`
 - `POST /orchestrate`
+- `GET /hooks`
+- `POST /hooks/{event}`
 
 Current VS Code and Claude clients should use the native MCP endpoint. The REST routes
 exist for older clients, scripts, and extension commands; they do not imitate MCP tool
@@ -349,6 +360,66 @@ and `.data/server.log`.
 
 Secrets must use environment files, input variables, or the platform secret store rather
 than literal values in this file.
+
+## Universal hooks
+
+Hooks let one lifecycle rule run identically on every supported agent. Copilot and
+Claude Code each have their own native hook system, their own event names, and their
+own payload shapes. This server normalizes all of them onto one canonical event set,
+so you write the behavior once.
+
+### Canonical events
+
+```text
+session_start   session_end     user_prompt
+pre_tool_use    post_tool_use   subagent_start
+subagent_stop   agent_stop      notification
+```
+
+Host spellings are accepted in any dialect and mapped onto these names:
+`sessionEnd`, `SessionEnd`, and `session_end` all resolve to `session_end`.
+Three payload shapes are understood — Copilot camelCase (Unix millisecond
+timestamps), the VS Code snake_case form, and Claude PascalCase.
+
+### Three ways to deliver a hook
+
+| Surface | Use when |
+| --- | --- |
+| `uacp hook <event>` (stdin JSON) | Default. Needs no running server, so it stays inside Claude's short `SessionEnd` budget. |
+| `POST /hooks/{event}` | The gateway is already running and you want an HTTP hook. |
+| `hook_emit` MCP tool | An agent should raise a lifecycle event itself. |
+
+`GET /hooks` and the `hook_list` tool report the configured events and handlers.
+
+### Behavior rules
+
+Two rules keep the session journal trustworthy:
+
+- **Anti-recursion.** Events listed under `hooks.rootSessionsOnly` in
+  `registry/manifest.yaml` are skipped when the payload carries `agent_id` or
+  `agent_type`. Sub-agents therefore never summarize themselves.
+- **Anti-bloat.** A repeated `(event, sessionId)` pair is a no-op, summaries shorter
+  than 200 characters are rejected, and a session is journaled once.
+
+The session-end handler stores a **caller-supplied** summary. It never invokes a model,
+so ending a session cannot trigger another billable agent run.
+
+A failing hook is always reported as data. Handler errors never abort the host session,
+and the CLI exits `0` even on failure. Logs go to stderr so stdout carries exactly one
+JSON object for the host to parse.
+
+### Configuration
+
+`uacp install-global` writes managed hook configuration for both hosts:
+`~/.copilot/hooks/universal-agent-control-plane.json` and a managed group inside
+`~/.claude/settings.json`. Install is idempotent and preserves hooks you wrote
+yourself; `uacp uninstall-global` removes only the managed entries.
+
+The Claude `SessionEnd` handler is registered with `"async": true` because
+`SessionEnd` hooks share a 1.5 second budget by default.
+
+HTTP hooks pointed at `http://localhost` require `COPILOT_HOOK_ALLOW_LOCALHOST=1` on
+Copilot, which is why the CLI surface is the default.
 
 ## Install once for every project
 

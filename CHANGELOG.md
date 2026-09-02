@@ -9,6 +9,16 @@ this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Universal lifecycle hooks: one canonical event set (`session_start`, `session_end`,
+  `user_prompt`, tool-use, sub-agent, and notification events) normalized across the
+  GitHub Copilot and Claude Code hook dialects.
+- Hook delivery on three surfaces: the `uacp hook <event>` CLI command, `GET /hooks`
+  and `POST /hooks/{event}` REST routes, and the `hook_list`, `hook_emit`, and
+  `journal_recent` MCP tools.
+- Session journal with anti-recursion (sub-agents never summarize themselves) and
+  anti-bloat rules (duplicate events suppressed, short summaries rejected).
+- Managed hook configuration written for both hosts by `uacp install-global`, removed
+  again by `uacp uninstall-global` without touching user-authored hooks.
 - Public repository community health files and GitHub templates.
 - GitHub Actions test matrix and Dependabot configuration.
 - GitHub-renderable architecture diagram embedded in the README.
