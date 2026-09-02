@@ -22,7 +22,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 def dispatcher(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> HookDispatcher:
     monkeypatch.setenv("UACP_DATA_DIR", str(tmp_path))
     registry = Registry(PROJECT_ROOT / "registry")
-    executor = SkillExecutor(registry)
+    executor = SkillExecutor(registry, StateStore(tmp_path))
     return HookDispatcher(registry, executor, StateStore(tmp_path))
 
 

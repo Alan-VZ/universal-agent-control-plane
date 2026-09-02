@@ -20,7 +20,7 @@ DATA_DIR = Path(os.environ.get("UACP_DATA_DIR", PROJECT_ROOT / ".data"))
 
 registry = Registry(REGISTRY_ROOT)
 state = StateStore(DATA_DIR)
-executor = SkillExecutor(registry)
+executor = SkillExecutor(registry, state)
 orchestrator = Orchestrator(executor)
 hooks = HookDispatcher(registry, executor, state)
 mcp = MCPServer("Universal Agent Control Plane")

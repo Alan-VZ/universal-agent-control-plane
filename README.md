@@ -157,7 +157,7 @@ hook_emit
 journal_recent
 ```
 
-Tool schemas must be explicit and validated. `skill.run` should dispatch only to allow-listed implementations declared in the registry; it must never import an arbitrary module name supplied by a client.
+Tool schemas must be explicit and validated. `skill_run` dispatches only to allow-listed implementations declared in the registry; it never imports an arbitrary module name supplied by a client.
 
 ## Configuration model
 
@@ -216,19 +216,23 @@ The resolver should fail clearly when a target cannot represent a requested feat
 
 ## Security baseline
 
-The first implementation should include:
+Status reflects what is in the code today, not what is planned.
 
-- localhost-only binding by default for Streamable HTTP
-- `Origin` validation and authentication for HTTP connections
-- environment or secret-store credentials rather than committed tokens
-- path traversal prevention and a configured registry root
-- allow-listed skill runners with declared permissions
-- input and output schema validation
-- per-client authorization and least-privilege scopes
-- namespaced, concurrency-safe state storage
-- append-only audit records for mutations and skill execution
-- resource size, execution time, and concurrency limits
-- no dynamic `import` or shell execution from untrusted skill names
+| Control | Status | Evidence |
+| --- | --- | --- |
+| localhost-only binding for Streamable HTTP | Implemented | `api.py` binds `127.0.0.1` and rejects non-loopback hosts |
+| Path traversal prevention and a configured registry root | Implemented | `Registry._safe_path` rejects paths escaping the root |
+| Allow-listed skill runners | Implemented | runners resolve only through `manifest.yaml` |
+| No dynamic import or shell execution from untrusted skill names | Implemented | client-supplied names are never imported directly |
+| Input and output schema validation | Implemented | Pydantic models on REST, typed MCP tool signatures |
+| Namespaced, concurrency-safe state storage | Implemented | SQLite with WAL and namespaced keys |
+| Append-only audit records for mutations and skill execution | Implemented | `state.put`, `hook.event`, and `skill.run` rows |
+| Runner source hashing recorded with each execution | Implemented | closes the hot-reload time-of-check/time-of-use gap |
+| Resource size limits | Implemented | 64 KiB caps on payloads, summaries, and state values |
+| `Origin` validation and authentication for HTTP connections | Planned | no auth layer exists; localhost binding is the only control |
+| Environment or secret-store credentials | Planned | no credentials are consumed yet |
+| Per-client authorization and least-privilege scopes | Planned | all clients share one permission level |
+| Execution time and concurrency limits | Planned | runners are not yet time-bounded |
 
 A shared `memory.json` file is not sufficient for concurrent clients, access control, or crash-safe writes. SQLite is a reasonable local MVP; a pluggable store can follow.
 
@@ -273,7 +277,11 @@ A shared `memory.json` file is not sufficient for concurrent clients, access con
 - Guaranteeing identical model behavior across vendors
 - Treating executable skills as trusted merely because they are in the registry
 - Replacing native instruction and Agent Skills support when it already works
-- Building multi-agent orchestration before registry, transport, and security contracts are stable
+- Building cross-host multi-agent orchestration — autonomous agent-to-agent
+  delegation, negotiation, or scheduling — before registry, transport, and
+  security contracts are stable. The shipped `orchestrate` tool is a
+  single-step routing primitive that tags one skill result for one target; it
+  does not spawn or coordinate agents.
 
 ## Example client configuration
 
@@ -310,7 +318,7 @@ Then open **MCP: List Servers** in VS Code and start
         "PYTHONPATH": "${workspaceFolder}\\src",
         "UACP_REGISTRY_ROOT": "${workspaceFolder}\\registry",
         "UACP_DATA_DIR": "${workspaceFolder}\\.data"
-      ]
+      }
     }
   }
 }
@@ -322,7 +330,8 @@ The server uses `stdio` by default and exposes:
   `skills://catalog`, and `skills://{name}/manifest`
 - prompt: `review_code`
 - tools: `registry_validate`, `registry_resolve`, `registry_search`, `skill_run`,
-  `orchestrate`, `state_get`, and `state_put`
+  `orchestrate`, `state_get`, `state_put`, `hook_list`, `hook_emit`, and
+  `journal_recent`
 
 ### HTTP MCP and REST compatibility gateway
 
@@ -355,7 +364,10 @@ discovery.
 
 Skill runner modules are explicitly allow-listed in `registry/manifest.yaml`. Their
 source modification time is checked on each call and changed modules are reloaded
-without restarting the server. Both server modes write structured JSON logs to stderr
+without restarting the server. Because the reloaded module may differ from the one
+validated at allow-list time, every execution records a SHA-256 hash of the runner
+source in the audit table, so an audit record identifies the code that actually ran
+rather than only the skill name. Both server modes write structured JSON logs to stderr
 and `.data/server.log`.
 
 Secrets must use environment files, input variables, or the platform secret store rather

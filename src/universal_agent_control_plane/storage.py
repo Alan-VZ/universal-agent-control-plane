@@ -46,6 +46,22 @@ class StateStore:
                 """
             )
 
+    def record_execution(
+        self,
+        reference: str,
+        source_digest: str | None,
+    ) -> None:
+        """Audit one runner execution against the hash of the code that ran.
+
+        Runners hot-reload, so recording only the skill name would let the
+        audit trail claim a result came from code that has since changed.
+        """
+        with self._connect() as connection:
+            connection.execute(
+                "INSERT INTO audit (action, namespace, key) VALUES ('skill.run', ?, ?)",
+                (reference, source_digest or "unknown"),
+            )
+
     def record_hook_event(
         self,
         event: str,
@@ -168,6 +184,26 @@ class StateStore:
                 (namespace, key),
             )
         return {"status": "stored", "namespace": namespace, "key": key}
+
+    def recent_audit(self, limit: int = 10) -> list[dict[str, Any]]:
+        """Return recent audit records, newest first."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT action, namespace, key, created_at
+                FROM audit ORDER BY id DESC LIMIT ?
+                """,
+                (max(1, min(int(limit), 100)),),
+            ).fetchall()
+        return [
+            {
+                "action": row[0],
+                "namespace": row[1],
+                "key": row[2],
+                "createdAt": row[3],
+            }
+            for row in rows
+        ]
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.database, timeout=5)

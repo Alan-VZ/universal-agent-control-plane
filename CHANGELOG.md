@@ -23,8 +23,27 @@ this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - GitHub Actions test matrix and Dependabot configuration.
 - GitHub-renderable architecture diagram embedded in the README.
 
+### Security
+
+- Skill and hook handler executions are now audited with a SHA-256 hash of the runner
+  source that actually ran, closing a time-of-check/time-of-use gap where hot-reloading
+  could execute code other than the module validated at allow-list time.
+- Skill execution is now recorded in the audit table at all; previously only state
+  writes and hook events were audited.
+
 ### Fixed
 
+- Corrected invalid JSON in the README client configuration example, where the `env`
+  object was closed with `]`.
+- Aligned README prose with the shipped `skill_run` tool name.
+- Replaced the aspirational security baseline list with a status table separating
+  implemented controls from planned ones.
+- Scoped the multi-agent orchestration non-goal so it no longer contradicts the shipped
+  single-step `orchestrate` routing primitive.
+- Listed the hook and journal tools in the client configuration tool summary.
+- Architecture diagram now shows the installer-to-registry link, the localhost trust
+  boundary around the REST gateway, project override precedence, and a legend entry for
+  every line style in use.
 - Restored Python 3.10 compatibility for structured log timestamps.
 - Made global installer tests use the active interpreter on clean CI runners.
 
