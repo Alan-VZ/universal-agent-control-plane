@@ -1,8 +1,10 @@
 # Universal Agent Instructions and Skills
 
-[![CI](https://github.com/Alan-VZ/universal-agent-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/Alan-VZ/universal-agent-control-plane/actions/workflows/ci.yml)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+<p align="center">
+  <a href="https://github.com/Alan-VZ/universal-agent-control-plane/actions/workflows/ci.yml"><img src="https://github.com/Alan-VZ/universal-agent-control-plane/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776AB.svg" alt="Python 3.10+" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT" /></a>
+</p>
 
 An open-source control plane for sharing instructions, Agent Skills, prompts, tools, and optional state across AI agents in VS Code and other MCP-compatible hosts.
 
@@ -18,7 +20,11 @@ host's supported mechanism without pretending every host has identical semantics
 
 ## Architecture map
 
-[![Universal Agent Control Plane architecture](docs/universal-agent-control-plane.svg)](docs/universal-agent-control-plane.html)
+<p align="center">
+  <a href="docs/universal-agent-control-plane.html">
+    <img src="docs/universal-agent-control-plane.svg" alt="Universal Agent Control Plane architecture showing the canonical registry, MCP runtime services, global installer, hook dispatcher, and agent hosts" width="1200" />
+  </a>
+</p>
 
 The diagram is embedded as SVG so GitHub can display it directly. Open the
 [self-contained interactive architecture map](docs/universal-agent-control-plane.html)
@@ -528,3 +534,28 @@ before reporting a vulnerability.
 - [MCP specification: prompts](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts)
 - [MCP specification: transports](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports)
 - [MCP security best practices](https://modelcontextprotocol.io/specification/latest/basic/security_best_practices)
+
+## Summary
+
+Universal Agent Control Plane is one canonical registry for the guidance your agents
+share. It combines the pieces a multi-host agent setup normally duplicates by hand:
+
+- canonical instructions, Agent Skills, and prompt templates
+- deterministic resolution with documented precedence
+- native MCP delivery over stdio and Streamable HTTP
+- a REST compatibility gateway for clients that cannot speak MCP
+- a global installer that projects one source of truth into every host scope
+- universal lifecycle hooks normalized across host dialects
+- namespaced state with append-only, source-hashed audit records
+
+You author guidance once and validate it once, and each host receives it through the
+mechanism that host actually supports — without pretending every host has identical
+semantics.
+
+## License
+
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+
+Copyright © 2026 Alan Van Zandt
+
+You are free to use, modify, and distribute this software in accordance with the terms of the MIT License.
