@@ -33,6 +33,11 @@ this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `orchestrate` now executes the target skill independently for each recipient (three
+  separate runs for `broadcast`) instead of running it once and relabeling a single
+  result for every recipient. The response reports `executions` keyed by recipient plus
+  `succeeded`/`failed` lists, and one recipient's failure no longer prevents the others
+  from executing.
 - Corrected invalid JSON in the README client configuration example, where the `env`
   object was closed with `]`.
 - Aligned README prose with the shipped `skill_run` tool name.

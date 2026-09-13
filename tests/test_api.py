@@ -34,6 +34,10 @@ def test_copilot_wrapper_and_orchestration(client: TestClient) -> None:
     assert skill.status_code == 200
     assert skill.json()["result"] == "Hello Alan, the shared skill is active."
     assert routed.json()["recipients"] == ["claude"]
+    assert routed.json()["succeeded"] == ["claude"]
+    assert routed.json()["executions"]["claude"]["result"] == (
+        "Hello Alan, the shared skill is active."
+    )
 
 
 def test_unknown_skill_is_a_client_error(client: TestClient) -> None:

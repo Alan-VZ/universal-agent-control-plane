@@ -4,6 +4,7 @@ import logging
 from typing import Any, Literal
 
 from .execution import SkillExecutor
+from .registry import RegistryError
 
 AgentTarget = Literal["claude", "copilot", "other", "broadcast"]
 AGENTS = ("claude", "copilot", "other")
@@ -33,10 +34,30 @@ class Orchestrator:
                 }
             },
         )
-        execution = self.executor.run(skill_name, payload)
+        executions: dict[str, dict[str, Any]] = {}
+        errors: dict[str, str] = {}
+        for recipient in recipients:
+            try:
+                executions[recipient] = self.executor.run(skill_name, payload)
+            except (RegistryError, ValueError) as exc:
+                errors[recipient] = str(exc)
+                logger.warning(
+                    "Recipient execution failed",
+                    extra={
+                        "fields": {
+                            "target": target,
+                            "recipient": recipient,
+                            "skill": skill_name,
+                            "error": str(exc),
+                        }
+                    },
+                )
         return {
             "target": target,
             "recipients": recipients,
-            "execution": execution,
-            "delivery": "result-envelope",
+            "executions": executions,
+            "errors": errors,
+            "delivery": "per-recipient-executions",
+            "succeeded": list(executions),
+            "failed": list(errors),
         }

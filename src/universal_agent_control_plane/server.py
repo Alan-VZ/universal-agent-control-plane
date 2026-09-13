@@ -106,7 +106,12 @@ def orchestrate(
     skill_name: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    """Route one skill result to an agent target or a broadcast result envelope."""
+    """Route one skill to an agent target, executing it once per recipient.
+
+    For a single target the skill runs once. For ``broadcast`` the skill runs
+    independently for each known agent; a failure for one recipient does not
+    prevent execution for the others.
+    """
     return orchestrator.route(target, skill_name, payload)
 
 

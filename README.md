@@ -163,7 +163,7 @@ hook_emit
 journal_recent
 ```
 
-Tool schemas must be explicit and validated. `skill_run` dispatches only to allow-listed implementations declared in the registry; it never imports an arbitrary module name supplied by a client.
+Tool schemas must be explicit and validated. `skill_run` dispatches only to allow-listed implementations declared in the registry; it never imports an arbitrary module name supplied by a client. `orchestrate` runs the skill independently once per recipient (three times for `broadcast`) and returns `executions` keyed by recipient plus `succeeded`/`failed` recipient lists — one recipient's failure does not prevent the others from executing.
 
 ## Configuration model
 
@@ -285,9 +285,10 @@ A shared `memory.json` file is not sufficient for concurrent clients, access con
 - Replacing native instruction and Agent Skills support when it already works
 - Building cross-host multi-agent orchestration — autonomous agent-to-agent
   delegation, negotiation, or scheduling — before registry, transport, and
-  security contracts are stable. The shipped `orchestrate` tool is a
-  single-step routing primitive that tags one skill result for one target; it
-  does not spawn or coordinate agents.
+  security contracts are stable. The shipped `orchestrate` tool executes one
+  skill independently for each target recipient (or all recipients on
+  `broadcast`) and reports a per-recipient result; it does not spawn agents,
+  let recipients negotiate, or coordinate cross-host state.
 
 ## Example client configuration
 
