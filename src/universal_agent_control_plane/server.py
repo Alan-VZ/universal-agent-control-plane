@@ -7,7 +7,7 @@ from typing import Annotated, Any
 
 from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
-from pydantic import Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .execution import SkillExecutor
 from .hooks import HookDispatcher
@@ -27,6 +27,96 @@ orchestrator = Orchestrator(executor)
 hooks = HookDispatcher(registry, executor, state)
 mcp = MCPServer("Universal Agent Control Plane")
 logger = logging.getLogger(__name__)
+
+
+class RegistryValidationResult(BaseModel):
+    valid: bool
+    errors: list[str]
+
+
+class SkillSummary(BaseModel):
+    name: str
+    description: str
+
+
+class RegistryResolveResult(BaseModel):
+    profile: str
+    instructions: str
+    skills: list[SkillSummary]
+
+
+class SearchMatch(BaseModel):
+    path: str
+    excerpt: str
+
+
+class SkillRunResult(BaseModel):
+    """Stable skill result envelope with skill-specific fields allowed."""
+
+    model_config = ConfigDict(extra="allow")
+
+    skill: str
+
+
+class OrchestrationRouteResult(BaseModel):
+    target: AgentTarget
+    recipients: list[str]
+    executions: dict[str, dict[str, Any]]
+    errors: dict[str, str]
+    delivery: str
+    succeeded: list[str]
+    failed: list[str]
+
+
+class HookEventSummary(BaseModel):
+    event: str
+    handlers: list[str]
+
+
+class HookListResult(BaseModel):
+    events: list[HookEventSummary]
+    rootSessionsOnly: list[str]
+
+
+class HookHandlerResult(BaseModel):
+    handler: str
+    status: str
+    output: dict[str, Any] | None = None
+    error: str | None = None
+
+
+class HookSpecificOutput(BaseModel):
+    hookEventName: str
+    additionalContext: str
+
+
+class HookEmitResult(BaseModel):
+    event: str
+    sessionId: str
+    handled: bool
+    results: list[HookHandlerResult]
+    skipped: str | None = None
+    additionalContext: str | None = None
+    hookSpecificOutput: HookSpecificOutput | None = None
+
+
+class JournalEntry(BaseModel):
+    sessionId: str
+    summary: str
+    tags: list[str]
+    createdAt: str
+
+
+class StateGetResult(BaseModel):
+    namespace: str
+    key: str
+    value: Any | None
+
+
+class StatePutResult(BaseModel):
+    status: str
+    namespace: str
+    key: str
 
 
 @mcp.resource("registry://manifest")
@@ -71,7 +161,7 @@ def review_code(code: str, language: str = "text") -> str:
         open_world_hint=False,
     )
 )
-def registry_validate() -> dict[str, Any]:
+def registry_validate() -> RegistryValidationResult:
     """Validate the canonical registry and return actionable errors.
 
     Read-only; makes no changes and has no parameters. Use this before editing
@@ -84,7 +174,7 @@ def registry_validate() -> dict[str, Any]:
     Returns `{"valid": bool, "errors": [str, ...]}`. Never raises for
     registry problems; validation failures are reported in `errors` instead.
     """
-    return registry.validate()
+    return RegistryValidationResult.model_validate(registry.validate())
 
 
 @mcp.tool(
@@ -107,7 +197,7 @@ def registry_resolve(
             )
         ),
     ] = "default",
-) -> dict[str, Any]:
+) -> RegistryResolveResult:
     """Resolve a profile into its effective instructions and skill metadata.
 
     Use this when an agent needs the complete, ready-to-use configuration for
@@ -131,14 +221,14 @@ def registry_resolve(
     missing = [name for name in configured_skills if name not in available]
     if missing:
         raise RegistryError(f"Profile references unknown skills: {', '.join(missing)}")
-    return {
-        "profile": profile,
-        "instructions": registry.instructions(profile),
-        "skills": [
-            {"name": available[name].name, "description": available[name].description}
+    return RegistryResolveResult(
+        profile=profile,
+        instructions=registry.instructions(profile),
+        skills=[
+            SkillSummary(name=available[name].name, description=available[name].description)
             for name in configured_skills
         ],
-    }
+    )
 
 
 @mcp.tool(
@@ -161,7 +251,7 @@ def registry_search(
             )
         ),
     ],
-) -> list[dict[str, str]]:
+) -> list[SearchMatch]:
     """Search instruction, skill, and prompt documents for a keyword.
 
     Use this read-only tool when you know a keyword or phrase but not which
@@ -176,7 +266,7 @@ def registry_search(
     matching file, ordered by path. An empty list means no document
     contained the query.
     """
-    return registry.search(query)
+    return [SearchMatch.model_validate(match) for match in registry.search(query)]
 
 
 @mcp.tool(
@@ -213,7 +303,7 @@ def skill_run(
             )
         ),
     ],
-) -> dict[str, Any]:
+) -> SkillRunResult:
     """Run one allow-listed skill directly, reloading it if its source changed.
 
     Use this to execute a single named skill once, synchronously, in the
@@ -229,7 +319,7 @@ def skill_run(
 
     Returns `{"skill": str, **<skill's own result fields>}`.
     """
-    return executor.run(skill_name, payload)
+    return SkillRunResult.model_validate(executor.run(skill_name, payload))
 
 
 @mcp.tool(
@@ -277,7 +367,7 @@ def orchestration_route(
             )
         ),
     ],
-) -> dict[str, Any]:
+) -> OrchestrationRouteResult:
     """Route one skill to an agent target, executing it once per recipient.
 
     Use this instead of `skill_run` whenever the caller needs to address a
@@ -298,7 +388,9 @@ def orchestration_route(
     "delivery": "per-recipient-executions", "succeeded": [str, ...],
     "failed": [str, ...]}`.
     """
-    return orchestrator.route(target, skill_name, payload)
+    return OrchestrationRouteResult.model_validate(
+        orchestrator.route(target, skill_name, payload)
+    )
 
 
 @mcp.tool(
@@ -309,7 +401,7 @@ def orchestration_route(
         open_world_hint=False,
     )
 )
-def hook_list() -> dict[str, Any]:
+def hook_list() -> HookListResult:
     """List canonical lifecycle events and their configured handlers.
 
     Read-only; makes no changes and has no parameters. Use this to discover
@@ -321,7 +413,7 @@ def hook_list() -> dict[str, Any]:
     "rootSessionsOnly": [str, ...]}`, where `rootSessionsOnly` lists events
     that are skipped when raised from a sub-agent session.
     """
-    return hooks.events()
+    return HookListResult.model_validate(hooks.events())
 
 
 @mcp.tool(
@@ -356,7 +448,7 @@ def hook_emit(
             )
         ),
     ],
-) -> dict[str, Any]:
+) -> HookEmitResult:
     """Dispatch a lifecycle event from any host that cannot call hooks directly.
 
     Use this when a host or script needs to raise a lifecycle event (such as
@@ -377,7 +469,7 @@ def hook_emit(
     Returns a response shape both hosts understand, including whether the
     event was newly stored.
     """
-    return hooks.dispatch(event, payload)
+    return HookEmitResult.model_validate(hooks.dispatch(event, payload))
 
 
 @mcp.tool(
@@ -400,7 +492,7 @@ def journal_recent(
             ),
         ),
     ] = 5,
-) -> list[dict[str, Any]]:
+) -> list[JournalEntry]:
     """Return recent session summaries recorded by session-end hooks.
 
     Read-only. Use this to see what prior sessions accomplished, most
@@ -415,7 +507,7 @@ def journal_recent(
     ...], "createdAt": str}`, newest first. An empty list means no session
     has been journaled yet.
     """
-    return state.recent_journal(limit)
+    return [JournalEntry.model_validate(entry) for entry in state.recent_journal(limit)]
 
 
 @mcp.tool(
@@ -447,7 +539,7 @@ def state_get(
             description="Key within the namespace, 1-128 characters.",
         ),
     ],
-) -> dict[str, Any]:
+) -> StateGetResult:
     """Read a namespaced value from shared local state.
 
     Use this to fetch a value previously written with `state_put`. Read-only
@@ -458,7 +550,11 @@ def state_get(
     namespace/key and when the stored value itself is JSON `null`; there is
     no separate "not found" signal.
     """
-    return {"namespace": namespace, "key": key, "value": state.get(namespace, key)}
+    return StateGetResult(
+        namespace=namespace,
+        key=key,
+        value=state.get(namespace, key),
+    )
 
 
 @mcp.tool(
@@ -500,7 +596,7 @@ def state_put(
             )
         ),
     ],
-) -> dict[str, str]:
+) -> StatePutResult:
     """Write a namespaced value to shared local state and audit the mutation.
 
     This is an upsert: writing to an existing `(namespace, key)` pair
@@ -519,7 +615,7 @@ def state_put(
         "Updated shared state",
         extra={"fields": {"namespace": namespace, "key": key}},
     )
-    return result
+    return StatePutResult.model_validate(result)
 
 
 def main() -> None:

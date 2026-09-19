@@ -27,6 +27,24 @@ def make_installer(tmp_path: Path) -> GlobalInstaller:
     )
 
 
+def test_global_install_preserves_symlinked_python_executable(tmp_path: Path) -> None:
+    launcher = tmp_path / "venv" / "bin" / "python"
+    launcher.parent.mkdir(parents=True)
+    try:
+        launcher.symlink_to(PYTHON)
+    except OSError:
+        pytest.skip("symbolic links are unavailable in this test environment")
+
+    installer = GlobalInstaller(
+        PROJECT_ROOT,
+        launcher,
+        InstallPaths(home=tmp_path / "home", vscode_user=tmp_path / "vscode-user"),
+    )
+
+    assert installer.python_executable == launcher.absolute()
+    assert installer.python_executable.is_symlink()
+
+
 def test_global_install_preserves_existing_mcp_servers(tmp_path: Path) -> None:
     installer = make_installer(tmp_path)
     vscode_mcp = installer.paths.vscode_user / "mcp.json"

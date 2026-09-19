@@ -245,7 +245,7 @@ Status reflects what is in the code today, not what is planned.
 | Path traversal prevention and a configured registry root | Implemented | `Registry._safe_path` rejects paths escaping the root |
 | Allow-listed skill runners | Implemented | runners resolve only through `manifest.yaml` |
 | No dynamic import or shell execution from untrusted skill names | Implemented | client-supplied names are never imported directly |
-| Input and output schema validation | Implemented | Pydantic models on REST, typed MCP tool signatures |
+| Input and output schema validation | Implemented | Pydantic models on REST and concrete MCP output envelopes, with explicitly open-ended skill payload fields |
 | Namespaced, concurrency-safe state storage | Implemented | SQLite with WAL and namespaced keys |
 | Append-only audit records for mutations and skill execution | Implemented | `state.put`, `hook.event`, and `skill.run` rows |
 | Runner source hashing recorded with each execution | Implemented | closes the hot-reload time-of-check/time-of-use gap |
@@ -554,13 +554,14 @@ before reporting a vulnerability.
 
 - Use [GitHub Issues](https://github.com/Alan-VZ/universal-agent-control-plane/issues)
   for reproducible bugs and focused feature requests.
-- Use pull requests for reviewed changes; the CI workflow runs the supported Python test
-  matrix automatically.
+- Use pull requests for reviewed changes; the CI workflow runs the supported Python
+  3.10-3.13 test matrix on both Ubuntu and Windows automatically.
 - See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## Definition of done for the first release
 
-- One canonical registry can be consumed by current VS Code/Copilot and Claude Code.
+- One canonical registry can be consumed by current VS Code/Copilot, Claude Code, and
+  Codex CLI.
 - Effective instructions and skills can be explained before installation.
 - Standard MCP discovery works for tools, prompts, and resources.
 - Installation is idempotent and supports dry-run, status, sync, and managed-only rollback.

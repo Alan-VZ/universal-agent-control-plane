@@ -60,7 +60,10 @@ class GlobalInstaller:
         paths: InstallPaths | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
-        self.python_executable = python_executable.resolve()
+        # Preserve a virtual environment's launcher path. On POSIX, resolve()
+        # follows bin/python to the system interpreter and can bypass the
+        # environment when generated hooks execute later.
+        self.python_executable = python_executable.absolute()
         self.paths = paths or InstallPaths.current()
         self.registry_root = self.project_root / "registry"
         self.registry = Registry(self.registry_root)

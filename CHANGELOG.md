@@ -23,6 +23,12 @@ this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Expanded every tool docstring to state when to use it, when to prefer a
   sibling tool instead, side effects, failure behavior, and the meaning of
   its response fields.
+- Replaced generic MCP output annotations with concrete Pydantic response
+  envelopes for validation, profile resolution, skill execution, routing,
+  hooks, journals, and state reads/writes. Skill-specific result fields remain
+  explicitly extensible.
+- Preserved the configured virtual-environment launcher path in the global
+  installer instead of resolving POSIX symlinks to the system interpreter.
 
 ### Added
 
@@ -52,6 +58,7 @@ this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removed again by `uacp uninstall-global` without touching user-authored hooks.
 - Public repository community health files and GitHub templates.
 - GitHub Actions test matrix and Dependabot configuration.
+- GitHub Actions now tests Python 3.10-3.13 on both Ubuntu and Windows.
 - GitHub-renderable architecture diagram embedded in the README.
 
 ### Security
