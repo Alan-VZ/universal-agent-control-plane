@@ -51,6 +51,19 @@ def test_hook_install_is_idempotent_and_preserves_unmanaged_hooks(
     assert entry["exec"] == sys.executable
     assert entry["args"][-1] == "session_end"
 
+    codex_hooks_path = installer.paths.home / ".codex" / "hooks.json"
+    codex_document = json.loads(codex_hooks_path.read_text(encoding="utf-8"))
+    codex_groups = codex_document["hooks"]["SessionEnd"]
+    codex_managed = [
+        group for group in codex_groups if installer._is_managed_codex_group(group)
+    ]
+    assert len(codex_managed) == 1, "re-running install must not duplicate codex hooks"
+    codex_handler = codex_managed[0]["hooks"][0]
+    assert codex_handler["type"] == "command"
+    assert sys.executable in codex_handler["command"]
+    assert codex_handler["async"] is True
+    assert codex_handler["timeout"] == 3
+
 
 def test_uninstall_removes_only_managed_hooks(tmp_path: Path) -> None:
     installer = _installer(tmp_path)
@@ -66,6 +79,7 @@ def test_uninstall_removes_only_managed_hooks(tmp_path: Path) -> None:
 
     assert installer.status()["hooks"]["copilot"] is True
     assert installer.status()["hooks"]["claude"] is True
+    assert installer.status()["hooks"]["codex"] is True
 
     installer.uninstall()
 
@@ -76,3 +90,6 @@ def test_uninstall_removes_only_managed_hooks(tmp_path: Path) -> None:
     groups = document["hooks"]["SessionEnd"]
     assert len(groups) == 1
     assert groups[0]["hooks"][0]["command"] == "mine"
+
+    codex_hooks_path = installer.paths.home / ".codex" / "hooks.json"
+    assert not codex_hooks_path.exists()

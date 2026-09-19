@@ -45,7 +45,10 @@ The original concept is valid, but several assumptions have changed:
 - VS Code supports portable Agent Skills stored in `.github/skills/`, `.claude/skills/`, or `.agents/skills/`, as well as user-level equivalents.
 - VS Code recognizes multiple instruction formats, including `.github/copilot-instructions.md`, `AGENTS.md`, `CLAUDE.md`, `.github/instructions/*.instructions.md`, and `.claude/rules/`.
 - Claude Code supports MCP, `CLAUDE.md`, `.claude/rules/`, and filesystem-based Agent Skills.
-- **Both GitHub Copilot and Claude Code now ship native lifecycle hooks.** Copilot reads hook files from `.github/hooks/`, `~/.copilot/hooks/`, and its settings; Claude Code reads them from `~/.claude/settings.json` and `.claude/settings.json`. Hooks therefore do not need to be simulated — this server acts as the shared hook backend both hosts call.
+- OpenAI Codex CLI supports MCP servers via `~/.codex/config.toml`, an always-on
+  `~/.codex/AGENTS.md` instructions file, and filesystem-based Agent Skills under
+  `~/.codex/skills/`.
+- **GitHub Copilot, Claude Code, and Codex CLI all ship native lifecycle hooks.** Copilot reads hook files from `.github/hooks/`, `~/.copilot/hooks/`, and its settings; Claude Code reads them from `~/.claude/settings.json` and `.claude/settings.json`; Codex reads them from `~/.codex/hooks.json`. Hooks therefore do not need to be simulated — this server acts as the shared hook backend all three hosts call.
 - Skills and instructions are portable only where their host semantics overlap. A resolver and adapter layer is still useful for validation, precedence, compatibility checks, and installation.
 
 This repository therefore aims for **shared source, explicit adapters, and honest capability negotiation** rather than claiming that all agents behave identically.
@@ -72,6 +75,7 @@ universal-agent-control-plane/
 │   ├── dependabot.yml
 │   └── pull_request_template.md
 ├── docs/
+│   ├── external-mcp-servers.md
 │   ├── universal-agent-control-plane.html
 │   └── universal-agent-control-plane.svg
 ├── registry/
@@ -155,7 +159,7 @@ registry_search
 registry_validate
 registry_resolve
 skill_run
-orchestrate
+orchestration_route
 state_get
 state_put
 hook_list
@@ -163,7 +167,18 @@ hook_emit
 journal_recent
 ```
 
-Tool schemas must be explicit and validated. `skill_run` dispatches only to allow-listed implementations declared in the registry; it never imports an arbitrary module name supplied by a client. `orchestrate` runs the skill independently once per recipient (three times for `broadcast`) and returns `executions` keyed by recipient plus `succeeded`/`failed` recipient lists — one recipient's failure does not prevent the others from executing.
+Tool schemas must be explicit and validated. Every parameter carries an MCP
+`description`, and every tool declares `readOnlyHint`/`destructiveHint`/
+`idempotentHint`/`openWorldHint` annotations so a client can tell reads from
+writes without parsing prose. `skill_run` dispatches only to allow-listed
+implementations declared in the registry; it never imports an arbitrary
+module name supplied by a client. `orchestration_route` (formerly
+`orchestrate`) runs the skill independently once per recipient (three times
+for `broadcast`) and returns `executions` keyed by recipient plus
+`succeeded`/`failed` recipient lists — one recipient's failure does not
+prevent the others from executing. Use `skill_run` when a specific agent
+target does not matter; use `orchestration_route` when it does, or to
+broadcast to every known agent.
 
 ## Configuration model
 
@@ -285,15 +300,30 @@ A shared `memory.json` file is not sufficient for concurrent clients, access con
 - Replacing native instruction and Agent Skills support when it already works
 - Building cross-host multi-agent orchestration — autonomous agent-to-agent
   delegation, negotiation, or scheduling — before registry, transport, and
-  security contracts are stable. The shipped `orchestrate` tool executes one
-  skill independently for each target recipient (or all recipients on
-  `broadcast`) and reports a per-recipient result; it does not spawn agents,
-  let recipients negotiate, or coordinate cross-host state.
+  security contracts are stable. The shipped `orchestration_route` tool
+  executes one skill independently for each target recipient (or all
+  recipients on `broadcast`) and reports a per-recipient result; it does not
+  spawn agents, let recipients negotiate, or coordinate cross-host state.
 
-## Example client configuration
+## Workspace MCP configuration
 
-The included `.vscode/mcp.json` starts the local server with the workspace virtual
-environment. Install the project first:
+The included `.vscode/mcp.json` starts the local UACP server and configures five
+official third-party MCP integrations:
+
+| Server | Transport | Authentication | Primary use |
+| --- | --- | --- | --- |
+| Universal Agent Control Plane | Local stdio | None | Shared registry, skills, prompts, hooks, and state |
+| Perplexity | Hosted HTTP | Perplexity API key, stored by VS Code | Search, research, and reasoning |
+| Playwright | Local stdio via `npx` | None | Accessibility-tree browser automation |
+| Firecrawl | Local stdio via `npx` | Firecrawl API key, stored by VS Code | Search, scrape, crawl, and structured web extraction |
+| Higgsfield | Hosted HTTP | Browser-based OAuth | Image, video, character, and audio generation |
+| Chrome DevTools | Local stdio via `npx` | None | Browser debugging, network inspection, and performance analysis |
+
+See the [external MCP server setup and operations guide](docs/external-mcp-servers.md)
+for prerequisites, credential setup, first-run behavior, verification prompts, security
+and billing considerations, troubleshooting, and optional configurations.
+
+Install this project first so the local UACP entry can start:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
@@ -310,12 +340,13 @@ The root launcher keeps local use simple:
 ```
 
 Then open **MCP: List Servers** in VS Code and start
-`universal-agent-control-plane`. The equivalent configuration is:
+`universal-agent-control-plane`. The equivalent UACP-only configuration is:
 
 ```json
 {
   "servers": {
     "universal-agent-control-plane": {
+      "type": "stdio",
       "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
       "args": [
         "-m",
@@ -331,13 +362,18 @@ Then open **MCP: List Servers** in VS Code and start
 }
 ```
 
+For the complete checked-in configuration, including secure VS Code input variables for
+Perplexity and Firecrawl, inspect [`.vscode/mcp.json`](.vscode/mcp.json). API keys are
+prompted for by VS Code and stored in its secret storage; they are not committed to this
+repository. Higgsfield opens its OAuth authorization flow when first connected.
+
 The server uses `stdio` by default and exposes:
 
 - resources: `registry://manifest`, `instructions://effective/{profile}`,
   `skills://catalog`, and `skills://{name}/manifest`
 - prompt: `review_code`
 - tools: `registry_validate`, `registry_resolve`, `registry_search`, `skill_run`,
-  `orchestrate`, `state_get`, `state_put`, `hook_list`, `hook_emit`, and
+  `orchestration_route`, `state_get`, `state_put`, `hook_list`, `hook_emit`, and
   `journal_recent`
 
 ### HTTP MCP and REST compatibility gateway
@@ -382,10 +418,10 @@ than literal values in this file.
 
 ## Universal hooks
 
-Hooks let one lifecycle rule run identically on every supported agent. Copilot and
-Claude Code each have their own native hook system, their own event names, and their
-own payload shapes. This server normalizes all of them onto one canonical event set,
-so you write the behavior once.
+Hooks let one lifecycle rule run identically on every supported agent. Copilot, Claude
+Code, and Codex CLI each have their own native hook system, their own event names, and
+their own payload shapes. This server normalizes all of them onto one canonical event
+set, so you write the behavior once.
 
 ### Canonical events
 
@@ -429,13 +465,19 @@ JSON object for the host to parse.
 
 ### Configuration
 
-`uacp install-global` writes managed hook configuration for both hosts:
-`~/.copilot/hooks/universal-agent-control-plane.json` and a managed group inside
-`~/.claude/settings.json`. Install is idempotent and preserves hooks you wrote
-yourself; `uacp uninstall-global` removes only the managed entries.
+`uacp install-global` writes managed hook configuration for all three hosts:
+`~/.copilot/hooks/universal-agent-control-plane.json`, a managed group inside
+`~/.claude/settings.json`, and a managed group inside `~/.codex/hooks.json`. Install is
+idempotent and preserves hooks you wrote yourself; `uacp uninstall-global` removes only
+the managed entries.
 
 The Claude `SessionEnd` handler is registered with `"async": true` because
-`SessionEnd` hooks share a 1.5 second budget by default.
+`SessionEnd` hooks share a 1.5 second budget by default. Codex's `SessionEnd` handler is
+registered with `"async": true` and an explicit `"timeout": 3` because Codex caps
+`SessionEnd`/`Interrupt` handlers at 3 seconds by default (vs. 600 seconds elsewhere).
+Unlike Claude and Copilot, Codex hook handlers take a single shell-quoted `command`
+string rather than a `command`/`args` pair, so the installer quotes the Python
+invocation per-platform (`subprocess.list2cmdline` on Windows, `shlex.join` elsewhere).
 
 HTTP hooks pointed at `http://localhost` require `COPILOT_HOOK_ALLOW_LOCALHOST=1` on
 Copilot, which is why the CLI surface is the default.
@@ -469,19 +511,22 @@ The installer owns only these projections:
 | --- | --- |
 | VS Code/Copilot instructions | `~/.copilot/instructions/uacp-global.instructions.md` |
 | Claude instructions | Marked import block in `~/.claude/CLAUDE.md` |
+| Codex instructions | Marked link block in `~/.codex/AGENTS.md` |
 | VS Code MCP | Merged server entry in `%APPDATA%\Code\User\mcp.json` |
 | Copilot Agent Host MCP | Merged server entry in `~/.copilot/mcp-config.json` |
-| Portable skills | Live links under `~/.copilot/skills`, `~/.claude/skills`, and `~/.agents/skills` |
+| Codex MCP | Merged `[mcp_servers.universal-agent-control-plane]` table in `~/.codex/config.toml` |
+| Portable skills | Live links under `~/.copilot/skills`, `~/.claude/skills`, `~/.agents/skills`, and `~/.codex/skills` |
 
 On Windows, the live skill links use directory symbolic links when available and directory
 junctions otherwise. They point to `registry/skills`, so editing a canonical `SKILL.md`
 takes effect without copying it into every host directory.
 
 Claude Code reads the canonical instruction file through its managed
-`@uacp-registry/instructions/global.md` import. VS Code/Copilot reads a small global
-instruction projection whose Markdown link targets the same canonical file. The installer
-never overwrites an existing skill directory that it does not own and never replaces
-unrelated MCP servers.
+`@uacp-registry/instructions/global.md` import. VS Code/Copilot and Codex each read a
+small global instruction projection whose Markdown link targets the same canonical file
+(Codex has no `@import` syntax, so its `AGENTS.md` block uses a plain relative link like
+Copilot's). The installer never overwrites an existing skill directory that it does not
+own and never replaces unrelated MCP servers or `config.toml` tables.
 
 If the Claude CLI is installed, `install-global` registers the stdio server at user scope.
 If it is absent, the install still configures Claude instructions and skills and returns
@@ -527,6 +572,11 @@ before reporting a vulnerability.
 - [VS Code: custom instructions](https://code.visualstudio.com/docs/agent-customization/custom-instructions)
 - [VS Code: Agent Skills](https://code.visualstudio.com/docs/agent-customization/agent-skills)
 - [VS Code: MCP servers](https://code.visualstudio.com/docs/agent-customization/mcp-servers)
+- [Perplexity MCP server](https://github.com/perplexityai/modelcontextprotocol)
+- [Playwright MCP server](https://github.com/microsoft/playwright-mcp)
+- [Firecrawl MCP server](https://github.com/firecrawl/firecrawl-mcp-server)
+- [Higgsfield MCP documentation](https://higgsfield.ai/creator-hub/help-center/integrations/what-is-higgsfield-mcp)
+- [Chrome DevTools MCP server](https://github.com/ChromeDevTools/chrome-devtools-mcp)
 - [Claude Code: MCP](https://code.claude.com/docs/en/mcp)
 - [Claude Code: persistent instructions](https://code.claude.com/docs/en/memory)
 - [Anthropic: Agent Skills](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview)

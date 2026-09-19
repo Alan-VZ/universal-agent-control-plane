@@ -7,18 +7,49 @@ this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed the `orchestrate` MCP tool to `orchestration_route` for naming
+  consistency with the other domain-prefixed tools (`registry_*`, `state_*`,
+  `skill_run`, `hook_*`). The `POST /orchestrate` REST route is unaffected.
+- Documented every MCP tool parameter with an explicit `description` (and,
+  where applicable, length/range constraints) instead of relying on the
+  function docstring alone, so clients can discover valid inputs directly
+  from `tools/list`.
+- Added MCP `ToolAnnotations` (`readOnlyHint`, `destructiveHint`,
+  `idempotentHint`, `openWorldHint`) to every tool so callers can tell reads
+  from writes, and reversible upserts from destructive-in-effect
+  overwrites, without parsing prose.
+- Expanded every tool docstring to state when to use it, when to prefer a
+  sibling tool instead, side effects, failure behavior, and the meaning of
+  its response fields.
+
 ### Added
 
+- Global installer support for OpenAI Codex CLI, on par with VS Code/Copilot and
+  Claude Code: a managed `~/.codex/AGENTS.md` instructions block, a merged
+  `[mcp_servers.universal-agent-control-plane]` table in `~/.codex/config.toml`
+  (written/removed with a small dependency-free TOML upsert helper), live skill
+  links under `~/.codex/skills/`, and a merged `~/.codex/hooks.json` hook group.
+  Codex uses the same PascalCase lifecycle event names as Claude Code, so no
+  changes were needed to hook event normalization; unlike Claude, Codex hook
+  handlers take a single shell-quoted `command` string, which the installer
+  builds with `subprocess.list2cmdline` on Windows and `shlex.join` elsewhere.
+- Workspace MCP configuration for the official Perplexity, Playwright, Firecrawl,
+  Higgsfield, and Chrome DevTools servers, with secrets collected through VS Code input
+  variables instead of committed credentials.
+- A detailed external MCP operations guide covering prerequisites, authentication,
+  capabilities, verification, security, billing, alternatives, and troubleshooting.
 - Universal lifecycle hooks: one canonical event set (`session_start`, `session_end`,
   `user_prompt`, tool-use, sub-agent, and notification events) normalized across the
-  GitHub Copilot and Claude Code hook dialects.
+  GitHub Copilot, Claude Code, and Codex CLI hook dialects.
 - Hook delivery on three surfaces: the `uacp hook <event>` CLI command, `GET /hooks`
   and `POST /hooks/{event}` REST routes, and the `hook_list`, `hook_emit`, and
   `journal_recent` MCP tools.
 - Session journal with anti-recursion (sub-agents never summarize themselves) and
   anti-bloat rules (duplicate events suppressed, short summaries rejected).
-- Managed hook configuration written for both hosts by `uacp install-global`, removed
-  again by `uacp uninstall-global` without touching user-authored hooks.
+- Managed hook configuration written for all three hosts by `uacp install-global`,
+  removed again by `uacp uninstall-global` without touching user-authored hooks.
 - Public repository community health files and GitHub templates.
 - GitHub Actions test matrix and Dependabot configuration.
 - GitHub-renderable architecture diagram embedded in the README.

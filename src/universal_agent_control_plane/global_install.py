@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -13,6 +14,18 @@ from .registry import Registry
 SERVER_NAME = "universal-agent-control-plane"
 MANAGED_START = "<!-- uacp:start -->"
 MANAGED_END = "<!-- uacp:end -->"
+
+# Codex and Claude Code hooks share the same PascalCase lifecycle event names,
+# unlike Copilot's camelCase dialect.
+HOST_HOOK_EVENT_NAMES: dict[str, str] = {
+    "session_start": "SessionStart",
+    "session_end": "SessionEnd",
+    "user_prompt": "UserPromptSubmit",
+    "pre_tool_use": "PreToolUse",
+    "post_tool_use": "PostToolUse",
+    "subagent_start": "SubagentStart",
+    "subagent_stop": "SubagentStop",
+}
 
 
 class InstallError(RuntimeError):
@@ -62,6 +75,7 @@ class GlobalInstaller:
         links = self._install_registry_and_skills()
         instruction_files = self._install_instructions()
         mcp_files = self._install_mcp_configs()
+        codex_mcp_file = self._install_codex_mcp()
         hook_files = self._install_hooks()
         claude_mcp = self._configure_claude_mcp() if configure_claude_mcp else {
             "configured": False,
@@ -72,7 +86,7 @@ class GlobalInstaller:
             "canonicalRegistry": str(self.registry_root),
             "instructions": instruction_files,
             "skillLinks": links,
-            "mcpConfigs": mcp_files,
+            "mcpConfigs": mcp_files + [codex_mcp_file],
             "hooks": hook_files,
             "claudeMcp": claude_mcp,
         }
@@ -100,6 +114,9 @@ class GlobalInstaller:
                 "claude": self._managed_block_present(
                     self.paths.home / ".claude" / "CLAUDE.md"
                 ),
+                "codex": self._managed_block_present(
+                    self.paths.home / ".codex" / "AGENTS.md"
+                ),
             },
             "skills": skill_status,
             "mcp": {
@@ -109,6 +126,11 @@ class GlobalInstaller:
                 "copilotAgentHost": self._json_server_matches(
                     self.paths.home / ".copilot" / "mcp-config.json", server
                 ),
+                "codex": self._toml_table_matches(
+                    self.paths.home / ".codex" / "config.toml",
+                    f"mcp_servers.{SERVER_NAME}",
+                    self._codex_mcp_table_body(),
+                ),
                 "claudeCliAvailable": shutil.which("claude") is not None,
             },
             "hooks": {
@@ -117,6 +139,7 @@ class GlobalInstaller:
                     self.paths.home / ".copilot" / "hooks" / f"{SERVER_NAME}.json"
                 ).is_file(),
                 "claude": self._claude_hooks_installed(),
+                "codex": self._codex_hooks_installed(),
             },
         }
 
@@ -143,15 +166,18 @@ class GlobalInstaller:
                     / "uacp-global.instructions.md"
                 ),
                 str(self.paths.home / ".claude" / "CLAUDE.md"),
+                str(self.paths.home / ".codex" / "AGENTS.md"),
             ],
             "skills": skills,
             "mcpConfigs": [
                 str(self.paths.vscode_user / "mcp.json"),
                 str(self.paths.home / ".copilot" / "mcp-config.json"),
+                str(self.paths.home / ".codex" / "config.toml"),
             ],
             "hooks": [
                 str(self.paths.home / ".copilot" / "hooks" / f"{SERVER_NAME}.json"),
                 str(self.paths.home / ".claude" / "settings.json"),
+                str(self.paths.home / ".codex" / "hooks.json"),
             ],
             "hookEvents": self._hook_events(),
             "conflicts": conflicts,
@@ -186,12 +212,22 @@ class GlobalInstaller:
         if self._remove_managed_block(claude_file):
             removed.append(f"{claude_file} (managed block)")
 
+        codex_agents_file = self.paths.home / ".codex" / "AGENTS.md"
+        if self._remove_managed_block(codex_agents_file):
+            removed.append(f"{codex_agents_file} (managed block)")
+
         for path in (
             self.paths.vscode_user / "mcp.json",
             self.paths.home / ".copilot" / "mcp-config.json",
         ):
             if self._remove_json_server(path):
                 removed.append(f"{path} ({SERVER_NAME})")
+
+        codex_config = self.paths.home / ".codex" / "config.toml"
+        if self._remove_toml_table(
+            codex_config, f"mcp_servers.{SERVER_NAME}", self._codex_mcp_table_body()
+        ):
+            removed.append(f"{codex_config} ({SERVER_NAME})")
 
         copilot_hooks = self.paths.home / ".copilot" / "hooks" / f"{SERVER_NAME}.json"
         if copilot_hooks.is_file():
@@ -200,6 +236,9 @@ class GlobalInstaller:
 
         if self._remove_claude_hooks():
             removed.append(f"{self.paths.home / '.claude' / 'settings.json'} (hooks)")
+
+        if self._remove_codex_hooks():
+            removed.append(f"{self.paths.home / '.codex' / 'hooks.json'} (hooks)")
         return {
             "uninstalled": True,
             "removed": removed,
@@ -244,6 +283,52 @@ class GlobalInstaller:
         self._write_json(path, document)
         return True
 
+    def _remove_codex_hooks(self) -> bool:
+        """Remove only the hook groups this installer created from Codex.
+
+        ``~/.codex/hooks.json`` may hold user-authored hooks alongside ours,
+        so only groups whose command references this package are removed;
+        the rest of the document (including unmanaged events) is preserved.
+        """
+        path = self.paths.home / ".codex" / "hooks.json"
+        if not path.is_file():
+            return False
+        document = self._read_json(path, {})
+        hooks = document.get("hooks")
+        if not isinstance(hooks, dict):
+            return False
+        changed = False
+        for event in list(hooks):
+            groups = hooks[event]
+            if not isinstance(groups, list):
+                continue
+            remaining = [
+                group for group in groups if not self._is_managed_codex_group(group)
+            ]
+            if len(remaining) != len(groups):
+                changed = True
+                if remaining:
+                    hooks[event] = remaining
+                else:
+                    del hooks[event]
+        if not changed:
+            return False
+        if hooks:
+            document["hooks"] = hooks
+        else:
+            document.pop("hooks", None)
+        default_description = f"Managed by {SERVER_NAME}."
+        remaining_keys = {
+            key
+            for key, value in document.items()
+            if not (key == "description" and value == default_description)
+        }
+        if not remaining_keys:
+            path.unlink()
+        else:
+            self._write_json(path, document)
+        return True
+
     def _install_registry_and_skills(self) -> list[str]:
         registry_link = self.paths.home / ".claude" / "uacp-registry"
         self._ensure_directory_link(registry_link, self.registry_root)
@@ -285,7 +370,19 @@ Project-level instructions remain additive and may specialize these global defau
             f"{MANAGED_END}"
         )
         self._upsert_managed_block(claude_file, managed)
-        return [str(copilot_file), str(claude_file)]
+
+        codex_file = self.paths.home / ".codex" / "AGENTS.md"
+        codex_managed = (
+            f"{MANAGED_START}\n"
+            "# Universal Agent Instructions\n\n"
+            "Read and follow the canonical "
+            "[global instructions](../.claude/uacp-registry/instructions/global.md).\n\n"
+            "Project-level instructions remain additive and may specialize these "
+            "global defaults.\n"
+            f"{MANAGED_END}"
+        )
+        self._upsert_managed_block(codex_file, codex_managed)
+        return [str(copilot_file), str(claude_file), str(codex_file)]
 
     def _install_mcp_configs(self) -> list[str]:
         server = self._server_config()
@@ -302,6 +399,14 @@ Project-level instructions remain additive and may specialize these global defau
             self._write_json(path, document)
         return [str(path) for path in files]
 
+    def _install_codex_mcp(self) -> str:
+        """Write our MCP server as a `[mcp_servers.<name>]` table in Codex's config.toml."""
+        path = self.paths.home / ".codex" / "config.toml"
+        self._upsert_toml_table(
+            path, f"mcp_servers.{SERVER_NAME}", self._codex_mcp_table_body()
+        )
+        return str(path)
+
     def _claude_hooks_installed(self) -> bool:
         path = self.paths.home / ".claude" / "settings.json"
         try:
@@ -317,12 +422,28 @@ Project-level instructions remain additive and may specialize these global defau
             for groups in hooks.values()
         )
 
-    def _install_hooks(self) -> list[str]:
-        """Write managed hook configuration for both hosts.
+    def _codex_hooks_installed(self) -> bool:
+        path = self.paths.home / ".codex" / "hooks.json"
+        try:
+            document = self._read_json(path, {})
+        except InstallError:
+            return False
+        hooks = document.get("hooks")
+        if not isinstance(hooks, dict):
+            return False
+        return any(
+            isinstance(groups, list)
+            and any(self._is_managed_codex_group(group) for group in groups)
+            for groups in hooks.values()
+        )
 
-        Copilot loads its own hook file, and Claude Code reads hooks from
-        its user settings. Both are pointed at the same CLI entry point, so
-        one registry drives identical behavior on either host.
+    def _install_hooks(self) -> list[str]:
+        """Write managed hook configuration for all three hosts.
+
+        Copilot and Codex each load their own dedicated hook file, and
+        Claude Code reads hooks from its user settings. All three are
+        pointed at the same CLI entry point, so one registry drives
+        identical behavior across every host.
         """
         written: list[str] = []
 
@@ -346,6 +467,24 @@ Project-level instructions remain additive and may specialize these global defau
         document["hooks"] = merged
         self._write_json(claude_settings, document)
         written.append(str(claude_settings))
+
+        codex_hooks_path = self.paths.home / ".codex" / "hooks.json"
+        codex_document = self._read_json(codex_hooks_path, {})
+        existing_codex = codex_document.get("hooks")
+        if existing_codex is not None and not isinstance(existing_codex, dict):
+            raise InstallError(f"'hooks' must be an object: {codex_hooks_path}")
+        merged_codex = dict(existing_codex or {})
+        for event, entries in self._codex_hooks()["hooks"].items():
+            unmanaged_codex = [
+                group
+                for group in merged_codex.get(event, [])
+                if not self._is_managed_codex_group(group)
+            ]
+            merged_codex[event] = unmanaged_codex + entries
+        codex_document["hooks"] = merged_codex
+        codex_document.setdefault("description", f"Managed by {SERVER_NAME}.")
+        self._write_json(codex_hooks_path, codex_document)
+        written.append(str(codex_hooks_path))
         return written
 
     def _hook_events(self) -> list[str]:
@@ -399,18 +538,9 @@ Project-level instructions remain additive and may specialize these global defau
 
     def _claude_hooks(self) -> dict[str, list[dict[str, Any]]]:
         # Claude Code uses PascalCase event names and matcher groups.
-        names = {
-            "session_start": "SessionStart",
-            "session_end": "SessionEnd",
-            "user_prompt": "UserPromptSubmit",
-            "pre_tool_use": "PreToolUse",
-            "post_tool_use": "PostToolUse",
-            "subagent_start": "SubagentStart",
-            "subagent_stop": "SubagentStop",
-        }
         hooks: dict[str, list[dict[str, Any]]] = {}
         for event in self._hook_events():
-            host_event = names.get(event)
+            host_event = HOST_HOOK_EVENT_NAMES.get(event)
             if host_event is None:
                 continue
             command = self._hook_command(event)
@@ -427,6 +557,41 @@ Project-level instructions remain additive and may specialize these global defau
             hooks[host_event] = [{"hooks": [handler]}]
         return hooks
 
+    def _codex_hooks(self) -> dict[str, Any]:
+        """Build the Codex CLI `hooks.json` document.
+
+        Codex shares Claude Code's PascalCase event names but, unlike
+        Claude, each handler's ``command`` is a single shell-executed
+        string rather than a ``command`` + ``args`` list, so the Python
+        invocation is quoted into one string per platform's shell rules.
+        """
+        hooks: dict[str, list[dict[str, Any]]] = {}
+        for event in self._hook_events():
+            host_event = HOST_HOOK_EVENT_NAMES.get(event)
+            if host_event is None:
+                continue
+            command = self._hook_command(event)
+            handler: dict[str, Any] = {
+                "type": "command",
+                "command": self._command_string(command),
+                "statusMessage": f"UACP {event}",
+            }
+            if host_event == "SessionEnd":
+                # Codex caps SessionEnd/Interrupt handlers at a 3 second
+                # timeout by default (vs. 600s elsewhere), so run in the
+                # background and set an explicit budget within that cap.
+                handler["async"] = True
+                handler["timeout"] = 3
+            hooks[host_event] = [{"hooks": [handler]}]
+        return {"description": f"Managed by {SERVER_NAME}.", "hooks": hooks}
+
+    @staticmethod
+    def _command_string(command: list[str]) -> str:
+        """Quote an argv list into a single shell command string for Codex."""
+        if os.name == "nt":
+            return subprocess.list2cmdline(command)
+        return shlex.join(command)
+
     @staticmethod
     def _is_managed_group(group: Any) -> bool:
         if not isinstance(group, dict):
@@ -438,6 +603,20 @@ Project-level instructions remain additive and may specialize these global defau
             isinstance(handler, dict)
             and isinstance(handler.get("args"), list)
             and "universal_agent_control_plane.cli" in handler["args"]
+            for handler in handlers
+        )
+
+    @staticmethod
+    def _is_managed_codex_group(group: Any) -> bool:
+        if not isinstance(group, dict):
+            return False
+        handlers = group.get("hooks")
+        if not isinstance(handlers, list):
+            return False
+        return any(
+            isinstance(handler, dict)
+            and isinstance(handler.get("command"), str)
+            and "universal_agent_control_plane.cli" in handler["command"]
             for handler in handlers
         )
 
@@ -495,11 +674,20 @@ Project-level instructions remain additive and may specialize these global defau
         config.pop("type")
         return config
 
+    def _codex_mcp_table_body(self) -> dict[str, Any]:
+        """MCP server fields for Codex's `[mcp_servers.<name>]` TOML table.
+
+        Codex's config.toml schema for `mcp_servers` is flat (no `type`
+        field), matching Claude's stripped-down server config.
+        """
+        return self._claude_server_config()
+
     def _skill_roots(self) -> dict[str, Path]:
         return {
             "copilot": self.paths.home / ".copilot" / "skills",
             "claude": self.paths.home / ".claude" / "skills",
             "agents": self.paths.home / ".agents" / "skills",
+            "codex": self.paths.home / ".codex" / "skills",
         }
 
     def _ensure_directory_link(self, link: Path, target: Path) -> None:
@@ -631,4 +819,123 @@ Project-level instructions remain additive and may specialize these global defau
             )
         del servers[SERVER_NAME]
         self._write_json(path, document)
+        return True
+
+    # -- TOML helpers for Codex's config.toml -------------------------------
+    #
+    # Codex has no other config surface for MCP servers, and adding a TOML
+    # parsing dependency is unnecessary for the narrow task of upserting or
+    # removing exactly one `[mcp_servers.<name>]` table (plus any nested
+    # `[mcp_servers.<name>.env]` sub-table) without disturbing the rest of a
+    # user-authored file.
+
+    @staticmethod
+    def _toml_string(value: str) -> str:
+        """Escape a string for use inside a TOML basic string literal."""
+        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
+
+    @staticmethod
+    def _toml_value(value: Any) -> str:
+        if isinstance(value, str):
+            return GlobalInstaller._toml_string(value)
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        if isinstance(value, (int, float)):
+            return str(value)
+        if isinstance(value, list):
+            items = ", ".join(GlobalInstaller._toml_value(item) for item in value)
+            return f"[{items}]"
+        raise InstallError(f"Unsupported TOML value type: {type(value)!r}")
+
+    @staticmethod
+    def _find_toml_table(lines: list[str], table: str) -> tuple[int, int] | None:
+        """Return the (start, end) line range of `[table]`, end exclusive.
+
+        The block runs from the exact `[table]` header line until the next
+        line that opens a table which is not a sub-table of `table` (i.e.
+        does not start with `[table.`), or end of file.
+        """
+        header = f"[{table}]"
+        start = None
+        for index, line in enumerate(lines):
+            if line.strip() == header:
+                start = index
+                break
+        if start is None:
+            return None
+        end = len(lines)
+        sub_prefix = f"[{table}."
+        for index in range(start + 1, len(lines)):
+            stripped = lines[index].strip()
+            if stripped.startswith("[") and not stripped.startswith(sub_prefix):
+                end = index
+                break
+        return start, end
+
+    @staticmethod
+    def _render_toml_table(table: str, body: dict[str, Any]) -> list[str]:
+        lines = [f"[{table}]"]
+        env = body.get("env")
+        for key, value in body.items():
+            if key == "env":
+                continue
+            lines.append(f"{key} = {GlobalInstaller._toml_value(value)}")
+        if isinstance(env, dict) and env:
+            lines.append(f"[{table}.env]")
+            for key, value in env.items():
+                lines.append(f"{key} = {GlobalInstaller._toml_value(value)}")
+        return lines
+
+    @classmethod
+    def _upsert_toml_table(cls, path: Path, table: str, body: dict[str, Any]) -> None:
+        existing = path.read_text(encoding="utf-8") if path.exists() else ""
+        lines = existing.splitlines()
+        block = cls._find_toml_table(lines, table)
+        rendered = cls._render_toml_table(table, body)
+        if block is None:
+            prefix = existing if not existing or existing.endswith("\n") else existing + "\n"
+            if prefix and not prefix.endswith("\n\n") and prefix != "\n":
+                prefix += "\n"
+            updated = prefix + "\n".join(rendered) + "\n"
+        else:
+            start, end = block
+            updated_lines = lines[:start] + rendered + lines[end:]
+            updated = "\n".join(updated_lines) + "\n"
+        cls._write_text(path, updated)
+
+    @classmethod
+    def _toml_table_matches(cls, path: Path, table: str, expected: dict[str, Any]) -> bool:
+        if not path.is_file():
+            return False
+        lines = path.read_text(encoding="utf-8").splitlines()
+        block = cls._find_toml_table(lines, table)
+        if block is None:
+            return False
+        start, end = block
+        actual = lines[start:end]
+        expected_lines = cls._render_toml_table(table, expected)
+        return [line.strip() for line in actual if line.strip()] == [
+            line.strip() for line in expected_lines if line.strip()
+        ]
+
+    @classmethod
+    def _remove_toml_table(cls, path: Path, table: str, expected: dict[str, Any]) -> bool:
+        if not path.is_file():
+            return False
+        lines = path.read_text(encoding="utf-8").splitlines()
+        block = cls._find_toml_table(lines, table)
+        if block is None:
+            return False
+        if not cls._toml_table_matches(path, table, expected):
+            raise InstallError(
+                f"Refusing to remove modified MCP server configuration: {path}"
+            )
+        start, end = block
+        remaining = lines[:start] + lines[end:]
+        updated = "\n".join(remaining).strip()
+        if updated:
+            cls._write_text(path, updated + "\n")
+        else:
+            path.unlink()
         return True

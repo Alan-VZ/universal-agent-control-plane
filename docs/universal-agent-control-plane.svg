@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg viewBox="0 0 1280 800" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="universal-agent-control-plane-title universal-agent-control-plane-desc">
       <title id="universal-agent-control-plane-title">Universal Agent Control Plane</title>
-      <desc id="universal-agent-control-plane-desc">Implemented architecture showing one canonical registry feeding MCP runtime services and an idempotent global installer that links canonical registry content into user-level agent scopes while project files retain highest precedence, with a localhost-only REST gateway marked as a trust boundary and agent host lifecycle hooks returning into a shared hook dispatcher that journals session history.</desc>
+      <desc id="universal-agent-control-plane-desc">Implemented architecture showing one canonical registry feeding MCP runtime services and an idempotent global installer that links canonical registry content into user-level agent scopes while project files retain highest precedence. VS Code also connects to five workspace-configured external MCP servers. A localhost-only REST gateway is marked as a trust boundary, and agent host lifecycle hooks return into a shared hook dispatcher that journals session history.</desc>
       <defs>
         <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
           <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
@@ -142,10 +142,10 @@
       <rect x="972" y="184" width="48" height="16" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
       <text x="996" y="196" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">HOSTS</text>
       <text x="1080" y="240" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">VS Code + Copilot</text>
-      <text x="1080" y="260" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">user mcp.json · native MCP</text>
+      <text x="1080" y="260" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">UACP + 5 external MCP servers</text>
       <line x1="984" y1="288" x2="1176" y2="288" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
-      <text x="1080" y="328" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Claude + Agent Skills</text>
-      <text x="1080" y="348" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">~/.claude · ~/.copilot · ~/.agents</text>
+      <text x="1080" y="328" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Claude + Codex + Skills</text>
+      <text x="1080" y="348" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">~/.claude · ~/.copilot · ~/.codex · ~/.agents</text>
       <line x1="984" y1="376" x2="1176" y2="376" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
       <text x="1080" y="416" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Project Overrides</text>
       <text x="1080" y="436" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">.github · AGENTS.md · .claude</text>
