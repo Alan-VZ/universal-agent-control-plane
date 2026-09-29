@@ -5,6 +5,8 @@ description: Demonstrates a portable skill and its allow-listed MCP runner. Use 
 
 # Example Skill
 
-Use the `skill.run` MCP tool with this skill's name and a payload containing an optional
-`name` field. The allow-listed runner returns a greeting and never imports or executes
-code selected by the caller.
+Call the `skill.run` MCP tool with `skill: "example-skill"` and
+`payload: { "name": "<person to greet>" }`. The `name` key is optional; if omitted,
+the runner uses a default greeting. Do not include other keys in the payload. The
+allow-listed runner returns a greeting and never imports or executes code selected
+by the caller.
