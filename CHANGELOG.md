@@ -105,3 +105,11 @@ this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 [Unreleased]: https://github.com/Alan-VZ/universal-agent-control-plane/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/Alan-VZ/universal-agent-control-plane/releases/tag/v0.1.0
+
+
+## 2026-11-17 — Universal tool contracts
+
+- Add host-independent ToolGateway/ToolSpec with schema validation, readiness, bounded execution, status/results, redaction hooks, optional SQLite records and conservative replay.
+- Add GatewayMCPServer with explicit individual tool schemas/structured envelopes and persistent MCPConnection.
+- Add jsonschema dependency; pin minimum supported MCP SDK to 2.3.0.
+- Document Playpen integration, observed failure categories, timeout/auth/model limitations and upstream creator acknowledgements; update both architecture maps and diagram checks.

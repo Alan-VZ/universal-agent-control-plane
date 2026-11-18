@@ -33,7 +33,8 @@ classifiers = [
 ]
 dependencies = [
   "fastapi>=0.116,<1",
-  "mcp>=2.0.0,<3",
+  "mcp>=2.3.0,<3",
+  "jsonschema>=4.23,<5",
   "PyYAML>=6.0.2,<7",
   "uvicorn>=0.35,<1",
 ]

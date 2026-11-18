@@ -80,7 +80,7 @@
     <h1>Universal Agent Control Plane</h1>
     <p class="subtitle">One canonical registry powers native MCP and a safe global installer that projects instructions, live skill links, and merged user-level MCP configuration to every project.</p>
 
-    <svg viewBox="0 0 1280 800" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="universal-agent-control-plane-title universal-agent-control-plane-desc">
+    <svg viewBox="0 0 1280 980" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="universal-agent-control-plane-title universal-agent-control-plane-desc">
       <title id="universal-agent-control-plane-title">Universal Agent Control Plane</title>
       <desc id="universal-agent-control-plane-desc">Implemented architecture showing one canonical registry feeding MCP runtime services and an idempotent global installer that links canonical registry content into user-level agent scopes while project files retain highest precedence. VS Code also connects to five workspace-configured external MCP servers. A localhost-only REST gateway is marked as a trust boundary, and agent host lifecycle hooks return into a shared hook dispatcher that journals session history.</desc>
       <defs>
@@ -254,9 +254,26 @@
       <text x="844" y="728" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">FOCAL CONTROL POINT</text>
       <rect x="1000" y="712" width="24" height="24" rx="4" fill="rgba(235,108,54,0.04)" stroke="rgba(235,108,54,0.50)" stroke-width="1" stroke-dasharray="4,4"/>
       <text x="1036" y="728" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace">TRUST BOUNDARY</text>
-    </svg>
 
-    <footer>Architecture map · runtime + global distribution + workspace MCP integrations + universal hooks · doc-wide · mixed audience · static HTML · updated 2026-09-12</footer>
+<g id="universal-tool-gateway" font-family="sans-serif">
+<text x="40" y="790" fill="#2d3142" font-size="18">Universal tool execution · reusable library + MCP transport</text>
+<rect x="40" y="810" width="240" height="90" rx="8" fill="#ececec" stroke="#4f5d75"/>
+<text x="60" y="843" font-size="14" fill="#2d3142">Playpen / other agent hosts</text><text x="60" y="868" font-size="11" fill="#4f5d75">Provider call adapters · selected tools</text>
+<path d="M280 855 H330" stroke="#2e5aa8" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="330" y="810" width="280" height="90" rx="8" fill="#fff2e9" stroke="#eb6c36"/>
+<text x="350" y="840" font-size="14" fill="#2d3142">UACP ToolGateway</text><text x="350" y="862" font-size="11" fill="#4f5d75">Typed validation · status · bounds</text><text x="350" y="882" font-size="11" fill="#4f5d75">Redacted records · SQLite · safe replay</text>
+<path d="M610 855 H660" stroke="#2e5aa8" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="660" y="810" width="250" height="90" rx="8" fill="#ececec" stroke="#4f5d75"/>
+<text x="680" y="843" font-size="14" fill="#2d3142">In-process or MCP transport</text><text x="680" y="868" font-size="11" fill="#4f5d75">Explicit contracts · trusted connections</text>
+<path d="M910 855 H960" stroke="#2e5aa8" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="960" y="810" width="280" height="90" rx="8" fill="#ececec" stroke="#4f5d75"/>
+<text x="980" y="843" font-size="14" fill="#2d3142">Host tools / external MCP tools</text><text x="980" y="868" font-size="11" fill="#4f5d75">Math · search · fetch · files · extraction</text>
+<text x="40" y="935" font-size="12" fill="#4f5d75">Shared interfaces, not identical model decisions. In-process timeouts may leave a handler running; no automatic write retries.</text>
+</g>
+</svg>
+
+    <footer>Architecture map · runtime + global distribution + workspace MCP integrations + universal hooks · doc-wide · mixed audience · static HTML · updated 2026-11-17</footer>
+  <p>New shared tool contracts and transport: <a href="tool-gateway.md">ToolGateway API, limits, Playpen integration and credits</a>.</p>
   </main>
 </body>
 </html>

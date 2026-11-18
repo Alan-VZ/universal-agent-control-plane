@@ -385,3 +385,8 @@ npx --version
 - [Higgsfield MCP overview](https://higgsfield.ai/creator-hub/help-center/integrations/what-is-higgsfield-mcp)
 - [Higgsfield connection guide](https://higgsfield.ai/creator-hub/help-center/integrations/how-do-i-connect-higgsfield-to-ai-agent)
 - [Chrome DevTools MCP](https://github.com/ChromeDevTools/chrome-devtools-mcp)
+
+
+## Shared tool gateway integration
+
+The new [ToolGateway API and MCP transport](tool-gateway.md) lets a host register explicit tool contracts and use persistent MCP connections. Agent Playpen integrates this library with a local allowlist and credential-aware adapters. This is distinct from the VS Code server configuration described above; no third-party server is installed or connected merely by importing the gateway. HTTP/OAuth authentication is not supplied by MCPConnection; use public endpoints or the host-specific authenticated integration until that feature is implemented.

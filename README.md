@@ -611,3 +611,10 @@ This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) f
 Copyright © 2026 Alan Van Zandt
 
 You are free to use, modify, and distribute this software in accordance with the terms of the MIT License.
+
+
+## Universal tool execution (November 17)
+
+The reusable ToolGateway now provides typed per-tool contracts, validation-before-execution, readiness, execution records/status, bounded output, concurrency/deadline handling and restricted replay. GatewayMCPServer exposes those same contracts as individual MCP tools. MCPConnection supports persistent explicit connections to external stdio/public HTTP servers. The existing guidance/skills/hooks server is unchanged; host applications register their tools through the new library API.
+
+[Agent Playpen](https://github.com/Alan-VZ/Agent-Playpen) integrates the gateway across its selected tools and adds the model adapters/UI. See [API examples, limits, integration evidence and credits](docs/tool-gateway.md). A common interface does not guarantee identical model decisions, reliable final prose, killable Python threads or unchanged live web data. The new execution limits apply to ToolGateway handlers; the older SkillExecutor's synchronous execution limitations remain as documented above.
