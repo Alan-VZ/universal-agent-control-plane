@@ -133,3 +133,11 @@ def test_official_mcp_client_roundtrip(tmp_path):
             )
 
     asyncio.run(run())
+
+
+def test_validation_feedback_names_missing_fields_without_echoing_values(tmp_path):
+    instance = gateway(tmp_path)
+    assert "value" in instance.execute("double", {})["error"]["message"]
+    result = instance.execute("double", {"value": "private-synthetic-input"})
+    assert "expected integer" in result["error"]["message"]
+    assert "private-synthetic-input" not in result["error"]["message"]

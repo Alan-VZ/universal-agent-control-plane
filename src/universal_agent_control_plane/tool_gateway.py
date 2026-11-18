@@ -240,10 +240,21 @@ class ToolGateway:
             if errors:
                 error = errors[0]
                 location = ".".join(str(p) for p in error.path) or "arguments"
+                if error.validator == "required":
+                    missing = [
+                        key
+                        for key in error.validator_value
+                        if key not in error.instance
+                    ]
+                    detail = "Missing required field(s): " + ", ".join(missing)
+                elif error.validator == "type":
+                    detail = f"{location}: expected {error.validator_value}"
+                elif error.validator == "additionalProperties":
+                    detail = f"{location}: unexpected field(s); use only advertised properties"
+                else:
+                    detail = f"{location}: {error.validator} validation failed; consult inputSchema"
                 return finish(
-                    "failed",
-                    "invalid_arguments",
-                    f"{location}: {error.validator} validation failed. Consult inputSchema; no tool was executed.",
+                    "failed", "invalid_arguments", detail + ". No tool was executed."
                 )
             deadline = (
                 spec.timeout if timeout is None else min(float(timeout), spec.timeout)
